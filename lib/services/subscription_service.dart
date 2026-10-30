@@ -112,13 +112,16 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     final last = _storage.getString(StorageKeys.lastPaymentCheck);
     _lastCheck = last == null ? null : DateTime.tryParse(last);
 
-    var account = accountId ?? _storage.getString(StorageKeys.accountId);
-    if (accountId != null) {
-      await _storage.setString(StorageKeys.accountId, accountId);
-    } else if (account == null || account.isEmpty) {
-      account = 'sp_${newId()}';
-      await _storage.setString(StorageKeys.accountId, account);
+    // La cuenta de Firebase es la referencia del pago en Mercado Pago.
+    // Sin sesión se usa (o se crea) un id guardado en el teléfono.
+    final String account;
+    if (accountId != null && accountId.isNotEmpty) {
+      account = accountId;
+    } else {
+      final saved = _storage.getString(StorageKeys.accountId) ?? '';
+      account = saved.isNotEmpty ? saved : 'sp_${newId()}';
     }
+    await _storage.setString(StorageKeys.accountId, account);
     _accountId = account;
 
     WidgetsBinding.instance.addObserver(this);
