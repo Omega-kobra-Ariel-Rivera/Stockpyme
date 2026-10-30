@@ -74,6 +74,8 @@ jobs:
           -keep class kotlinx.coroutines.** { *; }
           -keep class dev.steenbakker.mobile_scanner.** { *; }
           -keep class com.android.billingclient.** { *; }
+          -keep class com.google.firebase.** { *; }
+          -keep class io.grpc.** { *; }
           -dontwarn com.google.android.play.core.**
           EOF
           cat android/app/proguard-rules.pro
@@ -110,6 +112,44 @@ jobs:
             tail -12 android/app/build.gradle
           fi
 
+      - name: Revisar configuración de Firebase
+        run: |
+          if grep -q "ARCHIVO TEMPORAL" lib/firebase_options.dart; then
+            echo "::warning::Falta configurar Firebase (flutterfire configure). La app abrirá con el aviso 'Falta configurar Firebase'."
+          else
+            echo "Firebase configurado."
+          fi
+
+      - name: Firma fija del APK (secretos de GitHub)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::Sin el secreto KEYSTORE_BASE64 el APK se firma con una llave temporal: el inicio con Google no funcionará y habrá que desinstalar para actualizar."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat >> android/app/build.gradle.kts <<'EOF'
+
+          // StockPyme: firma fija (llave guardada en los secretos de GitHub).
+          android {
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("upload-keystore.jks")
+                      storePassword = System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("KEY_ALIAS")
+                      keyPassword = System.getenv("KEYSTORE_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
+                  }
+              }
+          }
+          EOF
+          echo "Firma fija configurada."
+
       - name: Descargar paquetes
         run: flutter pub get
 
@@ -119,6 +159,9 @@ jobs:
           dart run flutter_native_splash:create
 
       - name: Compilar APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: flutter build apk --release --obfuscate --split-debug-info=build/debug-info
 
       - name: Renombrar APK

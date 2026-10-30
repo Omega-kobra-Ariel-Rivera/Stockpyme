@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Reglas de seguridad de StockPyme (Rivera Systems).
+// Cópialas en Firebase Console → Firestore Database → Reglas → Publicar.
+//
+// - Cada usuario solo puede leer y escribir su propio negocio.
+// - Los administradores (correos en la colección "admins") pueden ver todo
+//   y activar o quitar el Pro manual.
+// - Nadie puede darse Pro a sí mismo ni alargar su prueba gratis.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admins/$(myEmail()));
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Campos que solo el administrador puede cambiar.
+    function protectedFields() {
+      return ['manualProUntil', 'manualProBy', 'manualProAt', 'trialStart', 'createdAt'];
+    }
+
+    // Administradores: documento admins/{correo en minúsculas}.
+    match /admins/{email} {
+      allow read: if signedIn() && myEmail() == email;
+      allow write: if false; // solo desde Firebase Console
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Al crear la cuenta: sin Pro manual y sin prueba en el futuro.
+      allow create: if isOwner(uid)
+        && !request.resource.data.keys().hasAny(['manualProUntil', 'manualProBy', 'manualProAt'])
+        && request.resource.data.trialStart <= request.time + duration.value(1, 'd');
+
+      // El usuario actualiza su perfil y resumen, pero no los campos protegidos.
+      allow update: if (isOwner(uid)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedFields()))
+        || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['manualProUntil', 'manualProBy', 'manualProAt']));
+
+      allow delete: if false;
+
+      match /products/{productId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if isOwner(uid);
+      }
+
+      match /sales/{saleId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if isOwner(uid);
+      }
+    }
+  }
+}

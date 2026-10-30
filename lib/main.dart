@@ -1,15 +1,22 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/auth_service.dart';
 import 'services/cart_service.dart';
+import 'services/cloud_sync_service.dart';
 import 'services/inventory_service.dart';
 import 'services/storage_service.dart';
 import 'services/subscription_service.dart';
 import 'utils/constants.dart';
 import 'utils/theme.dart';
+import 'widgets/app_logo.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -20,15 +27,25 @@ void main() {
           message: details.exceptionAsString(),
         );
 
-    // Se dibuja de inmediato; los datos se cargan dentro de _Bootstrap.
+    // Se dibuja de inmediato; lo demás se carga dentro de _Bootstrap.
     runApp(const _Bootstrap());
   }, (error, stack) {
     debugPrint('Error no controlado: $error\n$stack');
   });
 }
 
-/// Carga los servicios mostrando una pantalla de espera.
-/// Si algo falla o tarda demasiado, muestra el error con opción de reintentar.
+/// App con el tema de StockPyme. Hay una por estado (cargando, sin sesión,
+/// con sesión) para que los datos de cada cuenta queden por encima de la
+/// navegación y todas las pantallas los vean.
+Widget _app(Widget home) => MaterialApp(
+      title: AppConstants.appName,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      home: home,
+    );
+
+/// Inicia Firebase y el almacenamiento del teléfono.
 class _Bootstrap extends StatefulWidget {
   const _Bootstrap();
 
@@ -37,8 +54,8 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
-  InventoryService? _inventory;
-  SubscriptionService? _subscription;
+  StorageService? _storage;
+  AuthService? _auth;
   String? _error;
 
   @override
@@ -50,60 +67,150 @@ class _BootstrapState extends State<_Bootstrap> {
   Future<void> _load() async {
     setState(() => _error = null);
     try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        ).timeout(const Duration(seconds: 15));
+      }
       final storage = await StorageService.create()
           .timeout(const Duration(seconds: 10));
+      if (!mounted) return;
+      setState(() {
+        _storage = storage;
+        _auth ??= AuthService();
+      });
+    } on UnsupportedError catch (e) {
+      if (mounted) setState(() => _error = e.message ?? e.toString());
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  @override
+  void dispose() {
+    _auth?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final storage = _storage;
+    final auth = _auth;
+    if (_error != null) {
+      return _app(_ErrorView(message: _error!, onRetry: _load));
+    }
+    if (storage == null || auth == null) return _app(const _LoadingView());
+
+    return ChangeNotifierProvider.value(
+      value: auth,
+      child: Consumer<AuthService>(
+        builder: (context, session, _) {
+          if (!session.ready) return _app(const _LoadingView());
+          final user = session.user;
+          if (user == null) return _app(const LoginScreen());
+          return _AccountScope(
+            key: ValueKey(user.uid),
+            user: user,
+            storage: storage,
+            pendingBusinessName: session.pendingBusinessName,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Carga el negocio de la cuenta que inició sesión.
+class _AccountScope extends StatefulWidget {
+  const _AccountScope({
+    super.key,
+    required this.user,
+    required this.storage,
+    this.pendingBusinessName,
+  });
+
+  final User user;
+  final StorageService storage;
+  final String? pendingBusinessName;
+
+  @override
+  State<_AccountScope> createState() => _AccountScopeState();
+}
+
+class _AccountScopeState extends State<_AccountScope> {
+  InventoryService? _inventory;
+  SubscriptionService? _subscription;
+  CloudSyncService? _sync;
+  final CartService _cart = CartService();
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _error = null);
+    try {
+      final storage = widget.storage.forAccount(widget.user.uid);
+      await storage.migrateLegacyData();
+
       final inventory = InventoryService(storage);
       await inventory.init();
       final subscription = SubscriptionService(storage);
-      await subscription.init().timeout(const Duration(seconds: 10));
+      await subscription
+          .init(accountId: widget.user.uid)
+          .timeout(const Duration(seconds: 10));
+      final sync = CloudSyncService(
+        user: widget.user,
+        inventory: inventory,
+        subscription: subscription,
+        storage: storage,
+        pendingBusinessName: widget.pendingBusinessName,
+      );
       if (!mounted) return;
       setState(() {
         _inventory = inventory;
         _subscription = subscription;
+        _sync = sync;
       });
+      unawaited(sync.start());
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     }
+  }
+
+  @override
+  void dispose() {
+    _sync?.dispose();
+    _subscription?.dispose();
+    _inventory?.dispose();
+    _cart.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final inventory = _inventory;
     final subscription = _subscription;
+    final sync = _sync;
 
-    if (inventory == null || subscription == null) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        home: _error == null
-            ? const _LoadingView()
-            : _ErrorView(message: _error!, onRetry: _load),
-      );
+    if (_error != null) {
+      return _app(_ErrorView(message: _error!, onRetry: _load));
+    }
+    if (inventory == null || subscription == null || sync == null) {
+      return _app(const _LoadingView());
     }
 
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: inventory),
         ChangeNotifierProvider.value(value: subscription),
-        ChangeNotifierProvider(create: (_) => CartService()),
+        ChangeNotifierProvider.value(value: sync),
+        ChangeNotifierProvider.value(value: _cart),
       ],
-      child: const StockPymeApp(),
-    );
-  }
-}
-
-class StockPymeApp extends StatelessWidget {
-  const StockPymeApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      home: const SplashScreen(),
+      child: _app(const SplashScreen()),
     );
   }
 }
@@ -116,7 +223,21 @@ class _LoadingView extends StatelessWidget {
     return const Scaffold(
       backgroundColor: AppTheme.seed,
       body: Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppLogo(size: 96),
+            SizedBox(height: 28),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -153,7 +274,7 @@ class _ErrorView extends StatelessWidget {
               SelectableText(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFCCEDE7), fontSize: 13),
+                style: const TextStyle(color: AppTheme.onBrandMuted, fontSize: 13),
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: 20),
@@ -162,6 +283,7 @@ class _ErrorView extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white),
+                    minimumSize: const Size(160, 48),
                   ),
                   child: const Text('Reintentar'),
                 ),

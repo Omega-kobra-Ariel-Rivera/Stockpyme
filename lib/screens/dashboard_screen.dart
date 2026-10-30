@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/auth_service.dart';
 import '../services/inventory_service.dart';
 import '../utils/formatters.dart';
 import '../utils/theme.dart';
@@ -8,6 +9,7 @@ import '../widgets/app_logo.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/trial_banner.dart';
+import 'admin/admin_screen.dart';
 import 'settings_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -36,6 +38,14 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          if (context.watch<AuthService>().isAdmin)
+            IconButton(
+              tooltip: 'Panel de administración',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              ),
+            ),
           IconButton(
             tooltip: 'Ajustes',
             icon: const Icon(Icons.settings_outlined),

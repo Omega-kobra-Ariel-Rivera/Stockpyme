@@ -3,7 +3,14 @@
 **Inventario y punto de venta para almacenes, minimarkets y pymes.**
 App Flutter para Android, desarrollada por **Rivera Systems** (San Felipe, Chile).
 
-Precio: **$4.990 CLP al mes**, con **14 días de prueba gratis**.
+Precios Premium (StockPyme Pro), con **14 días de prueba gratis**:
+
+| Plan | Precio | Equivale a |
+|---|---|---|
+| Mensual | **$4.990** al mes | — |
+| Anual | **$49.900** al año | $4.158 al mes (2 meses gratis) |
+
+Los montos están en `lib/utils/constants.dart` (`PremiumPlan`) y deben ser iguales a los del servidor de pagos (`Stockpyme-pagos`), que es el que cobra.
 
 ## Funciones
 
@@ -18,8 +25,75 @@ Precio: **$4.990 CLP al mes**, con **14 días de prueba gratis**.
 | Exportar | Inventario y ventas en CSV para Excel o Google Sheets |
 | Suscripción | Prueba de 14 días y suscripción mensual con **Mercado Pago** |
 | Demo | Carga productos de ejemplo para mostrar la app |
+| Cuentas | Inicio de sesión con correo y contraseña o con Google; recuperar contraseña |
+| Nube | Respaldo automático de productos y ventas; se recuperan al cambiar de teléfono |
+| Administrador | Panel con todas las cuentas, negocios, planes, inventarios con precios y ventas; activar Pro a mano |
 
 Funciona **sin internet**: los datos quedan guardados en el teléfono.
+
+## Novedades v1.3.0
+
+- **Inicio de sesión** con correo y contraseña o con **Google**, con registro (nombre y negocio) y recuperación de contraseña.
+- **Cada cuenta tiene su propio negocio** en el teléfono. Los datos de la versión anterior pasan automáticamente a la primera cuenta que inicie sesión.
+- **Respaldo en la nube** (Firestore): productos y ventas se suben solos unos segundos después de cada cambio. La app sigue funcionando sin internet.
+- **Panel de administración** (solo para correos administradores): cuentas, negocios, plan de cada uno, inventario con precios, costo, margen y stock, y últimas ventas. Permite **activar Pro 30 días o 1 año** cuando alguien paga por fuera de la app.
+- La **prueba gratis queda ligada a la cuenta**: reinstalar la app no regala días.
+- **Plan anual** de $49.900 (2 meses gratis) además del mensual de $4.990, elegible en la pantalla Premium.
+- **Firma fija del APK**: el inicio con Google funciona y las actualizaciones se instalan encima, sin desinstalar.
+
+## Configurar Firebase (una sola vez)
+
+Las cuentas y la nube usan **Firebase** (gratis para empezar). Sin este paso la app abre con el aviso *"Falta configurar Firebase"*.
+
+### 1. Crear el proyecto
+
+1. Entra a [console.firebase.google.com](https://console.firebase.google.com) → **Agregar proyecto** → nombre `stockpyme`.
+2. **Authentication → Comenzar → Método de acceso**:
+   - Activa **Correo electrónico/contraseña**.
+   - Activa **Google** (elige tu correo como correo de asistencia).
+3. **Firestore Database → Crear base de datos** → modo **producción** → ubicación `southamerica-east1 (São Paulo)`.
+4. **Firestore → Reglas**: borra lo que hay, pega el contenido de [`firestore.rules`](firestore.rules) y toca **Publicar**.
+
+### 2. Hacerte administrador
+
+En **Firestore → Datos → Iniciar colección**:
+
+- ID de la colección: `admins`
+- ID del documento: **tu correo en minúsculas** (el mismo con que entrarás a la app, por ejemplo con Google)
+- Campo: `rol` · tipo string · valor `admin` → **Guardar**
+
+Para que el panel aparezca, entra a la app **con Google** con ese correo (las reglas exigen un correo verificado, y los de Google ya lo están).
+
+### 3. Conectar la app (en tu PC, en la carpeta del proyecto)
+
+```powershell
+npm install -g firebase-tools
+firebase login
+dart pub global activate flutterfire_cli
+flutterfire configure --project=ID-DE-TU-PROYECTO --platforms=android,web --android-package-name=cl.riverasystems.stock_pyme
+```
+
+Esto reemplaza `lib/firebase_options.dart` (y puede agregar `android/app/google-services.json`). Si Windows no reconoce `flutterfire`, cierra y abre VS Code.
+
+### 4. Huellas de la llave de firma
+
+En **Firebase → Configuración del proyecto → Tus apps → Android → Agregar huella digital**, agrega el **SHA-1** y el **SHA-256** que vienen en `LEEME_llave_StockPyme.txt`. Sin esto, *Continuar con Google* da error en el teléfono.
+
+### 5. Secretos de GitHub (firma fija)
+
+En el repositorio: **Settings → Secrets and variables → Actions → New repository secret**. Crea `KEY_ALIAS`, `KEYSTORE_PASSWORD` y `KEYSTORE_BASE64` con los valores de `LEEME_llave_StockPyme.txt`.
+
+> La llave (`.jks`) y su contraseña **nunca** se suben al repositorio. Guárdalas en un lugar seguro: sin ellas no podrás actualizar la app en Google Play.
+
+### 6. Subir y compilar
+
+```powershell
+git add .
+git commit -m "StockPyme v1.3: cuentas, nube y panel de administración"
+git push
+```
+
+Como cambia la firma, **desinstala una última vez** la versión anterior del teléfono. Desde aquí, las actualizaciones se instalan encima.
 
 ## Novedades v1.2.0
 
@@ -40,14 +114,19 @@ Funciona **sin internet**: los datos quedan guardados en el teléfono.
 
 ```
 lib/
-├── main.dart            Arranque y carga de servicios
-├── models/              Producto, venta, movimiento de stock, reportes
-├── services/            Almacenamiento, inventario, carrito, suscripción
+├── main.dart            Arranque: Firebase, sesión y datos de cada cuenta
+├── firebase_options.dart  Configuración de Firebase (la crea flutterfire)
+├── models/              Producto, venta, movimiento, reportes, cuenta (admin)
+├── services/            Almacenamiento, inventario, carrito, suscripción,
+│                        cuentas (auth), nube (sync) y administración
 ├── screens/             Inicio, productos, vender, reportes, ajustes, suscripción
+│   ├── auth/            Inicio de sesión y registro
+│   └── admin/           Panel de administración
 ├── widgets/             Componentes reutilizables
 └── utils/               Tema, constantes, formatos, permisos de acceso
 assets/branding/         Ícono, pantalla de inicio y logo de Rivera Systems
-.github/workflows/       Compilación automática del APK
+.github/workflows/       Compilación automática del APK (con firma fija)
+firestore.rules          Reglas de seguridad de la base de datos
 ```
 
 ## Compilar el APK

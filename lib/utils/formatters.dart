@@ -50,3 +50,16 @@ DateTime startOfDay(DateTime date) =>
     DateTime(date.year, date.month, date.day);
 
 const List<String> weekdayInitials = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+/// "hace 5 min", "hace 3 h", "hace 2 días" o la fecha si es más antiguo.
+String formatAgo(DateTime? date) {
+  if (date == null) return 'sin datos';
+  final diff = DateTime.now().difference(date);
+  if (diff.inMinutes < 1) return 'recién';
+  if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'hace ${diff.inHours} h';
+  if (diff.inDays < 30) {
+    return diff.inDays == 1 ? 'hace 1 día' : 'hace ${diff.inDays} días';
+  }
+  return formatDate(date);
+}

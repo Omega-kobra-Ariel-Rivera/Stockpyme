@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/auth_service.dart';
 import '../services/subscription_service.dart';
 import '../utils/constants.dart';
+import '../utils/formatters.dart';
 import '../widgets/app_logo.dart';
 
 /// Pantalla de suscripción: pago mensual con Mercado Pago.
@@ -25,7 +27,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
   ];
 
   late final TextEditingController _email = TextEditingController(
-    text: context.read<SubscriptionService>().payerEmail,
+    text: context.read<SubscriptionService>().payerEmail.isNotEmpty
+        ? context.read<SubscriptionService>().payerEmail
+        : context.read<AuthService>().email,
   );
 
   @override
@@ -89,30 +93,21 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
             const SizedBox(height: 24),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: scheme.primary, width: 1.5),
+            for (final plan in PremiumPlan.values) ...[
+              _PlanCard(
+                plan: plan,
+                selected: sub.plan == plan,
+                enabled: !sub.isSubscribed && !sub.loading,
+                onTap: () => sub.selectPlan(plan),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  children: [
-                    Text(
-                      sub.priceLabel,
-                      style: text.headlineSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Cobro automático cada mes con Mercado Pago. Cancela cuando quieras desde tu cuenta de Mercado Pago.',
-                      textAlign: TextAlign.center,
-                      style: text.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              sub.plan == PremiumPlan.anual
+                  ? 'Pagas una vez al año y se renueva solo. Cancela cuando quieras desde tu cuenta de Mercado Pago.'
+                  : 'Cobro automático cada mes con Mercado Pago. Cancela cuando quieras desde tu cuenta de Mercado Pago.',
+              textAlign: TextAlign.center,
+              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             if (sub.isSubscribed)
@@ -139,7 +134,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   backgroundColor: _mercadoPagoBlue,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: sub.loading ? null : () => sub.subscribe(_email.text),
+                onPressed: sub.loading
+                    ? null
+                    : () => sub.subscribe(_email.text, sub.plan),
                 icon: sub.loading
                     ? const SizedBox(
                         width: 20,
@@ -150,7 +147,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                       )
                     : const Icon(Icons.lock_outline),
-                label: const Text('Pagar con Mercado Pago'),
+                label: Text(
+                    'Pagar ${formatCLP(sub.plan.price)} con Mercado Pago'),
               ),
               const SizedBox(height: 8),
               TextButton(
@@ -195,6 +193,110 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Tarjeta seleccionable de un plan (mensual o anual).
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.plan,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final PremiumPlan plan;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final best = plan == PremiumPlan.anual;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: selected
+              ? scheme.primaryContainer.withValues(alpha: 0.45)
+              : scheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: enabled ? onTap : null,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 16, 14),
+              child: Row(
+                children: [
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: selected ? scheme.primary : scheme.outline,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(plan.title, style: text.titleMedium),
+                        Text(
+                          best
+                              ? 'Equivale a ${formatCLP(plan.monthlyEquivalent)} al mes'
+                              : plan.note,
+                          style: text.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(formatCLP(plan.price), style: text.titleLarge),
+                      Text(
+                        plan.period,
+                        style: text.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (best)
+          Positioned(
+            top: -10,
+            left: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.tertiary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                plan.note,
+                style: TextStyle(
+                  color: scheme.onTertiary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

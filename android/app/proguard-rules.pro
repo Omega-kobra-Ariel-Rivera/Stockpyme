@@ -18,4 +18,8 @@
 # Google Play Billing (suscripción)
 -keep class com.android.billingclient.** { *; }
 
+# Firebase (cuentas y nube)
+-keep class com.google.firebase.** { *; }
+-keep class io.grpc.** { *; }
+
 -dontwarn com.google.android.play.core.**

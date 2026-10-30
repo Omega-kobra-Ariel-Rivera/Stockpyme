@@ -21,6 +21,32 @@ class InventoryException implements Exception {
   String toString() => message;
 }
 
+/// Cambios pendientes de subir a la nube.
+class CloudChanges {
+  CloudChanges({
+    required this.products,
+    required this.deletedProductIds,
+    required this.sales,
+    required this.profileChanged,
+    required this.wipe,
+  });
+
+  final List<Product> products;
+  final List<String> deletedProductIds;
+  final List<Sale> sales;
+  final bool profileChanged;
+
+  /// El usuario borró todos sus datos.
+  final bool wipe;
+
+  bool get isEmpty =>
+      products.isEmpty &&
+      deletedProductIds.isEmpty &&
+      sales.isEmpty &&
+      !profileChanged &&
+      !wipe;
+}
+
 /// Lógica central: productos, stock, ventas y reportes.
 class InventoryService extends ChangeNotifier {
   InventoryService(this._storage);
@@ -31,6 +57,13 @@ class InventoryService extends ChangeNotifier {
   List<Sale> _sales = [];
   List<StockMovement> _movements = [];
   String _businessName = 'Mi negocio';
+
+  // Cambios que la sincronización con la nube aún no sube.
+  final Set<String> _dirtyProducts = {};
+  final Set<String> _deletedProducts = {};
+  final List<Sale> _newSales = [];
+  bool _profileDirty = false;
+  bool _wipeRequested = false;
 
   List<Product> get products => List.unmodifiable(_products);
   List<Sale> get sales => List.unmodifiable(_sales);
@@ -88,6 +121,7 @@ class InventoryService extends ChangeNotifier {
     final clean = name.trim();
     if (clean.isEmpty) return;
     _businessName = clean;
+    _profileDirty = true;
     await _storage.setString(StorageKeys.businessName, clean);
     notifyListeners();
   }
@@ -133,6 +167,7 @@ class InventoryService extends ChangeNotifier {
       throw InventoryException('Ya existe un producto con ese código.');
     }
     _products.add(product);
+    _dirtyProducts.add(product.id);
     _sortProducts();
     if (product.stock > 0) {
       _addMovement(product, MovementType.entrada, product.stock,
@@ -153,6 +188,7 @@ class InventoryService extends ChangeNotifier {
     }
     final difference = updated.stock - existing.stock;
     existing.applyFrom(updated);
+    _dirtyProducts.add(existing.id);
     if (difference != 0) {
       _addMovement(existing, MovementType.ajuste, difference,
           note: 'Edición de producto');
@@ -165,6 +201,8 @@ class InventoryService extends ChangeNotifier {
 
   Future<void> deleteProduct(String id) async {
     _products.removeWhere((p) => p.id == id);
+    _dirtyProducts.remove(id);
+    _deletedProducts.add(id);
     await _saveProducts();
     notifyListeners();
   }
@@ -210,6 +248,7 @@ class InventoryService extends ChangeNotifier {
       product.costPrice = newCostPrice;
     }
     product.updatedAt = DateTime.now();
+    _dirtyProducts.add(product.id);
     _addMovement(product, type, adds ? quantity : -quantity, note: note);
     await _saveProducts();
     await _saveMovements();
@@ -266,11 +305,13 @@ class InventoryService extends ChangeNotifier {
     for (final entry in resolved.entries) {
       entry.key.stock -= entry.value;
       entry.key.updatedAt = sale.date;
+      _dirtyProducts.add(entry.key.id);
       _addMovement(entry.key, MovementType.venta, -entry.value,
           note: 'Venta N° ${sale.number}');
     }
 
     _sales.insert(0, sale);
+    _newSales.add(sale);
     await _saveProducts();
     await _saveSales();
     await _saveMovements();
@@ -394,6 +435,10 @@ class InventoryService extends ChangeNotifier {
     _products = [];
     _sales = [];
     _movements = [];
+    _dirtyProducts.clear();
+    _deletedProducts.clear();
+    _newSales.clear();
+    _wipeRequested = true;
     await _storage.clearBusinessData();
     notifyListeners();
   }
@@ -415,6 +460,7 @@ class InventoryService extends ChangeNotifier {
     for (final product in demo) {
       if (!isBarcodeTaken(product.barcode)) {
         _products.add(product);
+        _dirtyProducts.add(product.id);
         _addMovement(product, MovementType.entrada, product.stock,
             note: 'Datos de ejemplo');
       }
@@ -422,6 +468,84 @@ class InventoryService extends ChangeNotifier {
     _sortProducts();
     await _saveProducts();
     await _saveMovements();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Nube
+  // ---------------------------------------------------------------------------
+
+  bool get hasCloudChanges =>
+      _dirtyProducts.isNotEmpty ||
+      _deletedProducts.isNotEmpty ||
+      _newSales.isNotEmpty ||
+      _profileDirty ||
+      _wipeRequested;
+
+  /// Entrega los cambios pendientes y los marca como enviados.
+  CloudChanges takeCloudChanges() {
+    final changes = CloudChanges(
+      products: [
+        for (final id in _dirtyProducts)
+          if (productById(id) != null) productById(id)!,
+      ],
+      deletedProductIds: _deletedProducts.toList(),
+      sales: List.of(_newSales),
+      profileChanged: _profileDirty,
+      wipe: _wipeRequested,
+    );
+    _dirtyProducts.clear();
+    _deletedProducts.clear();
+    _newSales.clear();
+    _profileDirty = false;
+    _wipeRequested = false;
+    return changes;
+  }
+
+  /// Si la subida falla, se vuelven a marcar para el próximo intento.
+  void requeueCloudChanges(CloudChanges changes) {
+    if (changes.wipe) _wipeRequested = true;
+    for (final p in changes.products) {
+      _dirtyProducts.add(p.id);
+    }
+    _deletedProducts.addAll(changes.deletedProductIds);
+    _newSales.addAll(changes.sales);
+    if (changes.profileChanged) _profileDirty = true;
+  }
+
+  /// Marca todo para subir (primera sincronización de este teléfono).
+  void markAllForUpload({int maxSales = 300}) {
+    _dirtyProducts.addAll(_products.map((p) => p.id));
+    _newSales
+      ..clear()
+      ..addAll(_sales.take(maxSales));
+    _profileDirty = true;
+  }
+
+  /// Carga los datos guardados en la nube (teléfono nuevo o reinstalación).
+  Future<void> restoreFromCloud({
+    required List<Product> products,
+    required List<Sale> sales,
+    String? businessName,
+  }) async {
+    _products = List.of(products);
+    _sales = List.of(sales)..sort((a, b) => b.date.compareTo(a.date));
+    if (businessName != null && businessName.trim().isNotEmpty) {
+      _businessName = businessName.trim();
+      await _storage.setString(StorageKeys.businessName, _businessName);
+    }
+    _sortProducts();
+    await _saveProducts();
+    await _saveSales();
+    notifyListeners();
+  }
+
+  /// Nombre del negocio sin marcarlo como cambio (lo trae la nube).
+  Future<void> applyCloudBusinessName(String name) async {
+    final clean = name.trim();
+    if (clean.isEmpty || clean == _businessName) return;
+    _businessName = clean;
+    await _storage.setString(StorageKeys.businessName, clean);
     notifyListeners();
   }
 }

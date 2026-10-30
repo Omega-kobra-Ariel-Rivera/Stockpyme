@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/constants.dart';
+import '../utils/formatters.dart';
 import '../utils/id_generator.dart';
 import 'storage_service.dart';
 
@@ -32,9 +33,25 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   String? _preapprovalId;
   DateTime? _lastCheck;
 
+  /// Plan elegido o contratado (mensual o anual).
+  PremiumPlan _plan = PremiumPlan.mensual;
+
+  /// Pro activado a mano por el administrador (pago en efectivo, regalo...).
+  DateTime? _manualProUntil;
+
   bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-  bool get isSubscribed => _subscribed;
+  /// Tiene Pro: por Mercado Pago o activado por el administrador.
+  bool get isSubscribed => _subscribed || manualProActive;
+
+  /// Suscripción pagada con Mercado Pago.
+  bool get mercadoPagoActive => _subscribed;
+
+  bool get manualProActive =>
+      _manualProUntil != null && _manualProUntil!.isAfter(DateTime.now());
+  DateTime? get manualProUntil => _manualProUntil;
+  DateTime get trialStart => _trialStart;
+  String get accountId => _accountId;
   bool get loading => _loading;
   String? get error => _error;
 
@@ -52,12 +69,31 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     return (left.inHours / 24).ceil();
   }
 
-  bool get inTrial => !_subscribed && trialDaysLeft > 0;
-  bool get hasAccess => _subscribed || trialDaysLeft > 0;
+  bool get inTrial => !isSubscribed && trialDaysLeft > 0;
+  bool get hasAccess => isSubscribed || trialDaysLeft > 0;
 
-  String get priceLabel => '${AppConstants.fallbackPrice} / mes';
+  /// Estado para mostrar al administrador.
+  String get planCode {
+    if (_subscribed) return 'pro_mp';
+    if (manualProActive) return 'pro_manual';
+    if (trialDaysLeft > 0) return 'trial';
+    return 'expired';
+  }
 
-  Future<void> init() async {
+  PremiumPlan get plan => _plan;
+
+  /// Precio del plan contratado, por ejemplo "$49.900 al año".
+  String get priceLabel => '${formatCLP(_plan.price)} ${_plan.period}';
+
+  void selectPlan(PremiumPlan plan) {
+    if (_subscribed || plan == _plan) return;
+    _plan = plan;
+    notifyListeners();
+  }
+
+  /// [accountId] es el id de la cuenta (Firebase); Mercado Pago lo usa como
+  /// referencia para saber de quién es cada pago.
+  Future<void> init({String? accountId}) async {
     final saved = _storage.getString(StorageKeys.trialStart);
     final parsed = saved == null ? null : DateTime.tryParse(saved);
     if (parsed == null) {
@@ -70,13 +106,16 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
 
     _subscribed = _storage.getBool(StorageKeys.subscribed) ?? false;
     _payerEmail = _storage.getString(StorageKeys.payerEmail) ?? '';
+    _plan = PremiumPlan.fromId(_storage.getString(StorageKeys.premiumPlan));
     final savedId = _storage.getString(StorageKeys.preapprovalId);
     _preapprovalId = (savedId == null || savedId.isEmpty) ? null : savedId;
     final last = _storage.getString(StorageKeys.lastPaymentCheck);
     _lastCheck = last == null ? null : DateTime.tryParse(last);
 
-    var account = _storage.getString(StorageKeys.accountId);
-    if (account == null || account.isEmpty) {
+    var account = accountId ?? _storage.getString(StorageKeys.accountId);
+    if (accountId != null) {
+      await _storage.setString(StorageKeys.accountId, accountId);
+    } else if (account == null || account.isEmpty) {
       account = 'sp_${newId()}';
       await _storage.setString(StorageKeys.accountId, account);
     }
@@ -105,13 +144,30 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Aplica lo guardado en la cuenta en la nube: la fecha de inicio de la
+  /// prueba (la más antigua gana, así reinstalar no regala días) y el Pro
+  /// activado por el administrador.
+  Future<void> applyCloudPlan({
+    DateTime? trialStart,
+    DateTime? manualProUntil,
+  }) async {
+    if (trialStart != null && trialStart.isBefore(_trialStart)) {
+      _trialStart = trialStart;
+      await _storage.setString(
+          StorageKeys.trialStart, _trialStart.toIso8601String());
+    }
+    _manualProUntil = manualProUntil;
+    notifyListeners();
+  }
+
   Future<void> setPayerEmail(String email) async {
     _payerEmail = email.trim().toLowerCase();
     await _storage.setString(StorageKeys.payerEmail, _payerEmail);
   }
 
   /// Crea la suscripción y abre Mercado Pago para pagar.
-  Future<void> subscribe([String? email]) async {
+  Future<void> subscribe([String? email, PremiumPlan? plan]) async {
+    if (plan != null) _plan = plan;
     _error = null;
     _info = null;
     if (email != null) await setPayerEmail(email);
@@ -128,7 +184,11 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
           .post(
             Uri.parse('${AppConstants.paymentsApiUrl}/crear-suscripcion'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': _payerEmail, 'accountId': _accountId}),
+            body: jsonEncode({
+              'email': _payerEmail,
+              'accountId': _accountId,
+              'plan': _plan.id,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       final data = _decode(response.body);
@@ -142,6 +202,7 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
       _preapprovalId = data['id'] as String?;
       if (_preapprovalId != null) {
         await _storage.setString(StorageKeys.preapprovalId, _preapprovalId!);
+        await _storage.setString(StorageKeys.premiumPlan, _plan.id);
       }
 
       final opened = await launchUrl(
@@ -197,6 +258,11 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       final status = data['status'] as String? ?? '';
+      final serverPlan = data['plan'] as String?;
+      if (serverPlan != null) {
+        _plan = PremiumPlan.fromId(serverPlan);
+        await _storage.setString(StorageKeys.premiumPlan, _plan.id);
+      }
       _lastCheck = DateTime.now();
       await _storage.setString(
           StorageKeys.lastPaymentCheck, _lastCheck!.toIso8601String());

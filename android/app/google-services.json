@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "942296066625",
+    "project_id": "stockpyme",
+    "storage_bucket": "stockpyme.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942296066625:android:8384d58930ce33f6d074c0",
+        "android_client_info": {
+          "package_name": "cl.riverasystems.stock_pyme"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "942296066625-jsjhah7kken957c3jjen7t5aqiq1j7bi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcfr6Xq_VfJQdsZGbN-zo5Bvbts1VuvOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "942296066625-jsjhah7kken957c3jjen7t5aqiq1j7bi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
