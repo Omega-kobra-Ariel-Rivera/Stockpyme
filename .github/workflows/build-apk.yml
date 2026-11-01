@@ -32,6 +32,22 @@ jobs:
           channel: stable
           cache: true
 
+      # Si el portal de plugins de Gradle falla ("Could not find
+      # org.jetbrains.kotlin..."), Gradle busca también en Maven Central y Google.
+      - name: Repositorios de respaldo para Gradle
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/repositorios-respaldo.gradle <<'EOF'
+          beforeSettings { settings ->
+              settings.pluginManagement.repositories {
+                  mavenCentral()
+                  google()
+                  gradlePluginPortal()
+              }
+          }
+          EOF
+          cat ~/.gradle/init.d/repositorios-respaldo.gradle
+
       - name: Crear carpeta android si falta
         run: |
           if [ ! -d android ]; then
