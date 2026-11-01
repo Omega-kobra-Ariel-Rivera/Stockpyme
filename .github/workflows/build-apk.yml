@@ -195,8 +195,10 @@ jobs:
           prerelease: true
           files: ${{ env.APK_NAME }}
 
-      # Link fijo que siempre baja el APK más nuevo (para la página web y el QR):
-      # https://github.com/<usuario>/<repo>/releases/download/descargas/StockPyme.apk
+      # Link fijo que siempre baja el APK más nuevo (para la página web y el QR).
+      # Se publica en el repositorio PÚBLICO stockpyme-descargas (el código
+      # sigue privado). Necesita el secreto DESCARGAS_TOKEN.
+      # https://github.com/Omega-kobra-Ariel-Rivera/stockpyme-descargas/releases/download/descargas/StockPyme.apk
       - name: Descarga directa (siempre la última versión)
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: cp "${{ env.APK_NAME }}" StockPyme.apk
@@ -205,6 +207,9 @@ jobs:
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          repository: ${{ github.repository_owner }}/stockpyme-descargas
+          token: ${{ secrets.DESCARGAS_TOKEN }}
+          target_commitish: main
           tag_name: descargas
           name: "StockPyme — descargar"
           body: |

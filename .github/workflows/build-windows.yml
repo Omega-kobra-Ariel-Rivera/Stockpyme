@@ -100,8 +100,9 @@ jobs:
             StockPyme-Instalador-v*.exe
             StockPyme-Windows-v*.zip
 
-      # Link fijo que siempre baja el instalador más nuevo:
-      # https://github.com/<usuario>/<repo>/releases/download/descargas/StockPyme-Instalador.exe
+      # Link fijo que siempre baja el instalador más nuevo (repositorio público
+      # stockpyme-descargas; necesita el secreto DESCARGAS_TOKEN):
+      # https://github.com/Omega-kobra-Ariel-Rivera/stockpyme-descargas/releases/download/descargas/StockPyme-Instalador.exe
       - name: Descarga directa (siempre la última versión)
         shell: pwsh
         run: |
@@ -113,6 +114,9 @@ jobs:
       - name: Publicar descarga directa
         uses: softprops/action-gh-release@v2
         with:
+          repository: ${{ github.repository_owner }}/stockpyme-descargas
+          token: ${{ secrets.DESCARGAS_TOKEN }}
+          target_commitish: main
           tag_name: descargas
           name: "StockPyme — descargar"
           prerelease: false
