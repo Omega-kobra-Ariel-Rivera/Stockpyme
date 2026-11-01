@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../utils/formatters.dart';
 
@@ -32,7 +33,7 @@ class ProductTile extends StatelessWidget {
       ),
       title: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        details.isEmpty ? 'Sin categoría' : details.join(' · '),
+        details.isEmpty ? tr('Sin categoría') : details.join(' · '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -41,11 +42,11 @@ class ProductTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            formatCLP(product.salePrice),
+            formatMoney(product.salePrice),
             style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           Text(
-            '${formatQty(product.stock)} ${product.unit}',
+            '${formatQty(product.stock)} ${unitLabel(product.unit)}',
             style: text.bodySmall?.copyWith(
               color: low ? scheme.error : scheme.onSurfaceVariant,
               fontWeight: low ? FontWeight.w600 : null,

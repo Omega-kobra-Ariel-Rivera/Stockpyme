@@ -1,7 +1,7 @@
 # StockPyme
 
 **Inventario y punto de venta para almacenes, minimarkets y pymes.**
-App Flutter para Android, desarrollada por **Rivera Systems** (San Felipe, Chile).
+App Flutter para Android y Windows, desarrollada por **Rivera Systems** (San Felipe, Chile).
 
 Precios Premium (StockPyme Pro), con **14 días de prueba gratis**:
 
@@ -23,13 +23,35 @@ Los montos están en `lib/utils/constants.dart` (`PremiumPlan`) y deben ser igua
 | Alertas | Productos bajo el mínimo destacados en Inicio |
 | Reportes | Ventas, ganancia, ticket promedio, gráfico diario y más vendidos (hoy, 7 y 30 días) |
 | Exportar | Inventario y ventas en CSV para Excel o Google Sheets |
-| Suscripción | Prueba de 14 días y suscripción mensual con **Mercado Pago** |
+| Suscripción | Prueba de 14 días y planes mensual, semestral y anual con **Mercado Pago** |
+| Idiomas | Español, inglés y portugués (se elige en Ajustes o en la pantalla de inicio de sesión) |
+| Monedas | Peso chileno, argentino, colombiano y mexicano, sol peruano, dólar, euro y real (con centavos donde corresponde) |
 | Demo | Carga productos de ejemplo para mostrar la app |
 | Cuentas | Inicio de sesión con correo y contraseña o con Google; recuperar contraseña |
 | Nube | Respaldo automático de productos y ventas; se recuperan al cambiar de teléfono |
 | Administrador | Panel con todas las cuentas, negocios, planes, inventarios con precios y ventas; activar Pro a mano |
 
 Funciona **sin internet**: los datos quedan guardados en el teléfono.
+
+## Novedades v1.5.0
+
+- **Idiomas**: español, inglés y portugués. La app parte en el idioma del teléfono; se cambia en
+  *Ajustes → Idioma* o con el botón **ES / EN / PT** del inicio de sesión.
+- **Monedas**: cada negocio elige su moneda en *Ajustes → Moneda* (CLP, ARS, COP, MXN, PEN, USD, EUR, BRL).
+  Las monedas con centavos aceptan precios como `12,50`. Al cambiar de moneda los números se mantienen
+  (no se convierten con el tipo de cambio).
+- **Plan semestral**: $26.990 cada 6 meses (ahorra 10%), además del mensual ($4.990) y el anual ($49.900).
+  Hay que actualizar también el servidor de pagos (`Stockpyme-pagos`).
+- El administrador ve cada negocio en su propia moneda y puede dar **Pro 6 meses**.
+- Para agregar un texto nuevo: escríbelo con `tr('Texto en español')` y agrega su traducción en
+  `lib/l10n/translations_en.dart` y `lib/l10n/translations_pt.dart`.
+
+## Novedades v1.4.0
+
+- **Programa para Windows** con instalador `.exe` y versión portátil `.zip`, generados solos en GitHub.
+- **Lector USB de códigos de barras** en el PC.
+- **Menú lateral** en pantallas anchas (PC y tablet).
+- **Plan anual** de $49.900 (2 meses gratis) además del mensual de $4.990.
 
 ## Novedades v1.3.0
 
@@ -40,6 +62,25 @@ Funciona **sin internet**: los datos quedan guardados en el teléfono.
 - La **prueba gratis queda ligada a la cuenta**: reinstalar la app no regala días.
 - **Plan anual** de $49.900 (2 meses gratis) además del mensual de $4.990, elegible en la pantalla Premium.
 - **Firma fija del APK**: el inicio con Google funciona y las actualizaciones se instalan encima, sin desinstalar.
+
+## Programa para Windows (PC)
+
+StockPyme también funciona como **programa de escritorio para Windows 10 y 11**, con las mismas cuentas y datos que el teléfono.
+
+- **Descargar:** en GitHub → **Releases** → *StockPyme Windows prueba (build N)*:
+  - `StockPyme-Instalador-vX.exe`: instalador con acceso directo en el escritorio (recomendado).
+  - `StockPyme-Windows-vX.zip`: versión portátil, se descomprime y se abre `stock_pyme.exe`.
+- **Lector de códigos de barras USB:** al tocar el botón del escáner se abre un cuadro; pasa el producto por el lector (o escribe el código) y se agrega solo.
+- **Cuentas:** en el PC se entra con **correo y contraseña**. Firebase no ofrece el inicio con Google en Windows; quien creó la cuenta con Google puede crear una contraseña con *¿Olvidaste tu contraseña?* usando el mismo correo.
+- **Pantalla ancha:** el menú pasa a la izquierda.
+- Windows puede mostrar *"Windows protegió su PC"* porque el programa no está firmado con un certificado pagado: toca **Más información → Ejecutar de todas formas**.
+
+Lo compila solo el workflow `build-windows.yml` en cada `git push` (tarda unos 15 minutos). Para probarlo en tu PC necesitas Visual Studio 2022 con *Desarrollo para el escritorio con C++*:
+
+```powershell
+flutter create --org cl.riverasystems --project-name stock_pyme --platforms windows .
+flutter run -d windows
+```
 
 ## Configurar Firebase (una sola vez)
 
@@ -70,7 +111,7 @@ Para que el panel aparezca, entra a la app **con Google** con ese correo (las re
 npm install -g firebase-tools
 firebase login
 dart pub global activate flutterfire_cli
-flutterfire configure --project=ID-DE-TU-PROYECTO --platforms=android,web --android-package-name=cl.riverasystems.stock_pyme
+flutterfire configure --project=ID-DE-TU-PROYECTO --platforms=android,web,windows --android-package-name=cl.riverasystems.stock_pyme
 ```
 
 Esto reemplaza `lib/firebase_options.dart` (y puede agregar `android/app/google-services.json`). Si Windows no reconoce `flutterfire`, cierra y abre VS Code.

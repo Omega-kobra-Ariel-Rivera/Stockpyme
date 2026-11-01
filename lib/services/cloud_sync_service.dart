@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../models/sale.dart';
 import '../utils/constants.dart';
@@ -84,7 +85,7 @@ class CloudSyncService extends ChangeNotifier {
     } catch (_) {
       // Sin conexión: la app sigue con los datos del teléfono y
       // se reintenta en el próximo cambio.
-      _error = 'Sin conexión. Tus datos se respaldarán cuando vuelva internet.';
+      _error = tr('Sin conexión. Tus datos se respaldarán cuando vuelva internet.');
     }
 
     _profileSub = _userDoc.snapshots().listen(_onProfile, onError: (_) {});
@@ -121,6 +122,7 @@ class CloudSyncService extends ChangeNotifier {
         'email': (user.email ?? '').toLowerCase(),
         'name': _name,
         'businessName': business,
+        'currency': inventory.currency.code,
         'provider': user.providerData.isEmpty
             ? 'password'
             : user.providerData.first.providerId,
@@ -139,6 +141,11 @@ class CloudSyncService extends ChangeNotifier {
         cloudName.isNotEmpty &&
         inventory.businessName == 'Mi negocio') {
       await inventory.applyCloudBusinessName(cloudName);
+    }
+    // Teléfono nuevo sin datos: usa la moneda que el negocio ya tenía.
+    final firstTime = !(storage.getBool(StorageKeys.cloudRestored) ?? false);
+    if (firstTime && inventory.products.isEmpty && inventory.sales.isEmpty) {
+      await inventory.applyCloudCurrency(data['currency'] as String?);
     }
     await subscription.applyCloudPlan(
       trialStart: (data['trialStart'] as Timestamp?)?.toDate(),
@@ -220,7 +227,7 @@ class CloudSyncService extends ChangeNotifier {
       _error = null;
     } catch (_) {
       if (changes != null) inventory.requeueCloudChanges(changes);
-      _error = 'Sin conexión. Tus datos se respaldarán cuando vuelva internet.';
+      _error = tr('Sin conexión. Tus datos se respaldarán cuando vuelva internet.');
     } finally {
       _syncing = false;
       notifyListeners();
@@ -274,6 +281,7 @@ class CloudSyncService extends ChangeNotifier {
       'email': (user.email ?? '').toLowerCase(),
       'name': _name,
       'businessName': inventory.businessName,
+      'currency': inventory.currency.code,
       'lastSeen': FieldValue.serverTimestamp(),
       'appVersion': AppConstants.appVersion,
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,

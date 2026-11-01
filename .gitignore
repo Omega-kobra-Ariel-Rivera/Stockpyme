@@ -18,3 +18,7 @@ android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 android/key.properties
 *.jks
 *.keystore
+
+# Instaladores generados en el PC
+StockPyme-*.exe
+StockPyme-*.zip

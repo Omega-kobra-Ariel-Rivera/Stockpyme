@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'StockPyme';
-  static const String appVersion = '1.3.0';
+  static const String appVersion = '1.5.0';
   static const String tagline = 'Inventario y ventas para tu negocio';
 
   static const String company = 'Rivera Systems';
@@ -47,6 +47,14 @@ enum PremiumPlan {
     months: 1,
     period: 'al mes',
     note: 'Cancela cuando quieras',
+  ),
+  semestral(
+    id: 'semestral',
+    title: 'Semestral',
+    price: 26990,
+    months: 6,
+    period: 'cada 6 meses',
+    note: 'Ahorra 10%',
   ),
   anual(
     id: 'anual',
@@ -115,6 +123,12 @@ class StorageKeys {
   static const String lastPaymentCheck = 'sp_mp_last_check';
   static const String premiumPlan = 'sp_premium_plan';
 
+  /// Moneda del negocio (CLP, USD, EUR...).
+  static const String currency = 'sp_currency';
+
+  /// Idioma de la app (igual para todas las cuentas del teléfono).
+  static const String language = 'sp_language';
+
   /// Marca de "datos ya restaurados desde la nube" en este teléfono.
   static const String cloudRestored = 'sp_cloud_restored';
 
@@ -132,6 +146,7 @@ class StorageKeys {
     preapprovalId,
     lastPaymentCheck,
     premiumPlan,
+    currency,
     cloudRestored,
   ];
 }

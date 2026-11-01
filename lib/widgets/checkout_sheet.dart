@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/i18n.dart';
 import '../models/sale.dart';
 import '../utils/formatters.dart';
 
@@ -33,7 +34,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
   PaymentMethod _method = PaymentMethod.efectivo;
   final _cash = TextEditingController();
 
-  int? get _cashValue => parseCLP(_cash.text);
+  int? get _cashValue => parseMoney(_cash.text);
 
   @override
   void dispose() {
@@ -41,9 +42,9 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
     super.dispose();
   }
 
-  /// Montos rápidos: exacto y billetes chilenos que cubran el total.
+  /// Montos rápidos: exacto y billetes de la moneda que cubran el total.
   List<int> get _quickAmounts {
-    const bills = [1000, 2000, 5000, 10000, 20000];
+    final bills = Money.currency.quickBills;
     final amounts = <int>{widget.total};
     for (final bill in bills) {
       final rounded = ((widget.total + bill - 1) ~/ bill) * bill;
@@ -70,15 +71,15 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Total a cobrar',
+            Text(tr('Total a cobrar'),
                 style: text.bodyMedium, textAlign: TextAlign.center),
             Text(
-              formatCLP(widget.total),
+              formatMoney(widget.total),
               textAlign: TextAlign.center,
               style: text.displaySmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 20),
-            Text('Medio de pago', style: text.titleSmall),
+            Text(tr('Medio de pago'), style: text.titleSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -96,12 +97,14 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
               const SizedBox(height: 20),
               TextField(
                 controller: _cash,
-                keyboardType: TextInputType.number,
+                keyboardType: Money.currency.decimals > 0
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.number,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
-                  labelText: 'Paga con',
-                  prefixText: r'$ ',
-                  errorText: cashInvalid ? 'El monto es menor al total' : null,
+                  labelText: tr('Paga con'),
+                  prefixText: '${Money.currency.symbol.trim()} ',
+                  errorText: cashInvalid ? tr('El monto es menor al total') : null,
                 ),
               ),
               const SizedBox(height: 8),
@@ -111,10 +114,10 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                   for (final amount in _quickAmounts)
                     ActionChip(
                       label: Text(amount == widget.total
-                          ? 'Exacto'
-                          : formatCLP(amount)),
+                          ? tr('Exacto')
+                          : formatMoney(amount)),
                       onPressed: () => setState(
-                          () => _cash.text = amount.toString()),
+                          () => _cash.text = moneyInput(amount)),
                     ),
                 ],
               ),
@@ -129,11 +132,11 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Vuelto',
+                      Text(tr('Vuelto'),
                           style: text.titleMedium
                               ?.copyWith(color: scheme.onPrimaryContainer)),
                       Text(
-                        formatCLP(change),
+                        formatMoney(change),
                         style: text.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: scheme.onPrimaryContainer,
@@ -156,7 +159,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                         ),
                       ),
               icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Confirmar venta'),
+              label: Text(tr('Confirmar venta')),
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../models/stock_movement.dart';
 import '../services/inventory_service.dart';
@@ -43,9 +44,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _scanSearch() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const ScannerScreen()),
-    );
+    final code = await scanBarcode(context);
     if (code == null || !mounted) return;
     final product = context.read<InventoryService>().findByBarcode(code);
     if (product != null) {
@@ -55,16 +54,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final create = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Producto no encontrado'),
-        content: Text('No hay productos con el código $code. ¿Quieres crearlo?'),
+        title: Text(tr('Producto no encontrado')),
+        content: Text(tr('No hay productos con el código {code}. ¿Quieres crearlo?',
+                {'code': code})),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('No'),
+            child: Text(tr('No')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Crear producto'),
+            child: Text(tr('Crear producto')),
           ),
         ],
       ),
@@ -84,18 +84,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
               title: Text(product.name,
                   style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(
-                  'Stock: ${formatQty(product.stock)} ${product.unit} · Precio: ${formatCLP(product.salePrice)} · Margen: ${formatPercent(product.marginPercent)}'),
+                  tr('Stock: {stock} · Precio: {price} · Margen: {margin}', {
+                  'stock': '${formatQty(product.stock)} ${unitLabel(product.unit)}',
+                  'price': formatMoney(product.salePrice),
+                  'margin': formatPercent(product.marginPercent),
+                })),
             ),
             const Divider(),
-            _actionTile(sheetContext, Icons.edit_outlined, 'Editar producto',
+            _actionTile(sheetContext, Icons.edit_outlined, tr('Editar producto'),
                 _ProductAction.edit),
             _actionTile(sheetContext, Icons.add_box_outlined,
-                'Entrada de stock (compra)', _ProductAction.entry),
+                tr('Entrada de stock (compra)'), _ProductAction.entry),
             _actionTile(sheetContext, Icons.indeterminate_check_box_outlined,
-                'Salida / merma', _ProductAction.exit),
-            _actionTile(sheetContext, Icons.history, 'Historial de movimientos',
+                tr('Salida / merma'), _ProductAction.exit),
+            _actionTile(sheetContext, Icons.history, tr('Historial de movimientos'),
                 _ProductAction.history),
-            _actionTile(sheetContext, Icons.delete_outline, 'Eliminar',
+            _actionTile(sheetContext, Icons.delete_outline, tr('Eliminar'),
                 _ProductAction.delete,
                 destructive: true),
           ],
@@ -117,7 +121,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ? MovementType.entrada
               : MovementType.salida,
         );
-        if (saved == true && mounted) showMessage(context, 'Stock actualizado');
+        if (saved == true && mounted) showMessage(context, tr('Stock actualizado'));
       case _ProductAction.history:
         await _showHistory(product);
       case _ProductAction.delete:
@@ -149,16 +153,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
         initialChildSize: 0.6,
         maxChildSize: 0.9,
         builder: (_, controller) => movements.isEmpty
-            ? const EmptyState(
+            ? EmptyState(
                 icon: Icons.history,
-                title: 'Sin movimientos',
-                message: 'Aún no hay movimientos para este producto.',
+                title: tr('Sin movimientos'),
+                message: tr('Aún no hay movimientos para este producto.'),
               )
             : ListView(
                 controller: controller,
                 children: [
                   ListTile(
-                    title: Text('Movimientos de ${product.name}',
+                    title: Text(tr('Movimientos de {name}', {'name': product.name}),
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
                   for (final m in movements)
@@ -170,7 +174,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         color: m.quantity >= 0 ? scheme.primary : scheme.error,
                       ),
                       title: Text(
-                          '${m.type.label}: ${m.quantity >= 0 ? '+' : ''}${formatQty(m.quantity)} ${product.unit}'),
+                          '${m.type.label}: ${m.quantity >= 0 ? '+' : ''}${formatQty(m.quantity)} ${unitLabel(product.unit)}'),
                       subtitle: Text([
                         formatDateTime(m.date),
                         if (m.note.isNotEmpty) m.note,
@@ -186,24 +190,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar producto'),
+        title: Text(tr('Eliminar producto')),
         content: Text(
-            '¿Eliminar "${product.name}"? Las ventas anteriores se mantienen en los reportes.'),
+            tr('¿Eliminar "{name}"? Las ventas anteriores se mantienen en los reportes.',
+            {'name': product.name})),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('Eliminar')),
           ),
         ],
       ),
     );
     if (confirm != true || !mounted) return;
     await context.read<InventoryService>().deleteProduct(product.id);
-    if (mounted) showMessage(context, 'Producto eliminado');
+    if (mounted) showMessage(context, tr('Producto eliminado'));
   }
 
   @override
@@ -216,10 +221,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Productos (${inv.products.length})'),
+        title: Text(tr('Productos ({n})', {'n': inv.products.length})),
         actions: [
           IconButton(
-            tooltip: 'Buscar con escáner',
+            tooltip: tr('Buscar con escáner'),
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: _scanSearch,
           ),
@@ -234,7 +239,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Buscar por nombre, código o categoría',
+                hintText: tr('Buscar por nombre, código o categoría'),
                 suffixIcon: query.isEmpty
                     ? null
                     : IconButton(
@@ -249,7 +254,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: FilterChip(
-                label: Text('Solo stock bajo ($lowCount)'),
+                label: Text(tr('Solo stock bajo ({n})', {'n': lowCount})),
                 selected: _onlyLow,
                 onSelected: (v) => setState(() => _onlyLow = v),
               ),
@@ -259,21 +264,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
             child: inv.products.isEmpty
                 ? EmptyState(
                     icon: Icons.inventory_2_outlined,
-                    title: 'Sin productos',
+                    title: tr('Sin productos'),
                     message:
-                        'Agrega tu primer producto o carga productos de ejemplo para probar la app.',
+                        tr('Agrega tu primer producto o carga productos de ejemplo para probar la app.'),
                     action: OutlinedButton.icon(
                       onPressed: () =>
                           context.read<InventoryService>().loadDemoData(),
                       icon: const Icon(Icons.auto_awesome_outlined),
-                      label: const Text('Cargar ejemplo'),
+                      label: Text(tr('Cargar ejemplo')),
                     ),
                   )
                 : items.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.search_off,
-                        title: 'Sin resultados',
-                        message: 'Prueba con otra búsqueda o quita el filtro.',
+                        title: tr('Sin resultados'),
+                        message: tr('Prueba con otra búsqueda o quita el filtro.'),
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.only(bottom: 96),
@@ -290,7 +295,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         heroTag: 'add_product',
         onPressed: () => _openForm(),
         icon: const Icon(Icons.add),
-        label: const Text('Producto'),
+        label: Text(tr('Producto')),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../models/report_models.dart';
 import '../models/sale.dart';
@@ -57,6 +58,7 @@ class InventoryService extends ChangeNotifier {
   List<Sale> _sales = [];
   List<StockMovement> _movements = [];
   String _businessName = 'Mi negocio';
+  AppCurrency _currency = AppCurrency.clp;
 
   // Cambios que la sincronización con la nube aún no sube.
   final Set<String> _dirtyProducts = {};
@@ -68,6 +70,13 @@ class InventoryService extends ChangeNotifier {
   List<Product> get products => List.unmodifiable(_products);
   List<Sale> get sales => List.unmodifiable(_sales);
   String get businessName => _businessName;
+
+  /// Nombre para mostrar (el nombre por defecto se traduce).
+  String get businessLabel =>
+      _businessName == 'Mi negocio' ? tr('Mi negocio') : _businessName;
+
+  /// Moneda en que el negocio lleva sus precios y ventas.
+  AppCurrency get currency => _currency;
 
   List<Product> get lowStockProducts =>
       _products.where((p) => p.isLowStock).toList();
@@ -98,6 +107,8 @@ class InventoryService extends ChangeNotifier {
         .toList();
     _businessName =
         _storage.getString(StorageKeys.businessName) ?? 'Mi negocio';
+    _currency = AppCurrency.fromCode(_storage.getString(StorageKeys.currency));
+    Money.currency = _currency;
     _sortProducts();
     _sales.sort((a, b) => b.date.compareTo(a.date));
     _movements.sort((a, b) => b.date.compareTo(a.date));
@@ -123,6 +134,61 @@ class InventoryService extends ChangeNotifier {
     _businessName = clean;
     _profileDirty = true;
     await _storage.setString(StorageKeys.businessName, clean);
+    notifyListeners();
+  }
+
+  /// Cambia la moneda. Los montos guardados mantienen su número
+  /// ($1.290 pasa a US$1,290.00): no se convierte con el tipo de cambio.
+  Future<void> setCurrency(AppCurrency currency) async {
+    if (currency == _currency) return;
+    final from = _currency.factor;
+    final to = currency.factor;
+    if (from != to) {
+      int scale(int v) => (v * to / from).round();
+      for (final p in _products) {
+        p.costPrice = scale(p.costPrice);
+        p.salePrice = scale(p.salePrice);
+        p.updatedAt = DateTime.now();
+      }
+      _sales = [
+        for (final sale in _sales)
+          Sale(
+            id: sale.id,
+            number: sale.number,
+            date: sale.date,
+            paymentMethod: sale.paymentMethod,
+            items: [
+              for (final item in sale.items)
+                SaleItem(
+                  productId: item.productId,
+                  name: item.name,
+                  quantity: item.quantity,
+                  unitPrice: scale(item.unitPrice),
+                  unitCost: scale(item.unitCost),
+                ),
+            ],
+          ),
+      ];
+      await _saveProducts();
+      await _saveSales();
+      // Sube todo otra vez con los montos nuevos.
+      markAllForUpload(maxSales: 500);
+    }
+    _currency = currency;
+    Money.currency = currency;
+    _profileDirty = true;
+    await _storage.setString(StorageKeys.currency, currency.code);
+    notifyListeners();
+  }
+
+  /// Moneda guardada en la nube (teléfono nuevo); no cambia los montos.
+  Future<void> applyCloudCurrency(String? code) async {
+    if (code == null || code.isEmpty) return;
+    final currency = AppCurrency.fromCode(code);
+    if (currency == _currency) return;
+    _currency = currency;
+    Money.currency = currency;
+    await _storage.setString(StorageKeys.currency, currency.code);
     notifyListeners();
   }
 
@@ -164,14 +230,14 @@ class InventoryService extends ChangeNotifier {
 
   Future<void> addProduct(Product product) async {
     if (isBarcodeTaken(product.barcode)) {
-      throw InventoryException('Ya existe un producto con ese código.');
+      throw InventoryException(tr('Ya existe un producto con ese código.'));
     }
     _products.add(product);
     _dirtyProducts.add(product.id);
     _sortProducts();
     if (product.stock > 0) {
       _addMovement(product, MovementType.entrada, product.stock,
-          note: 'Stock inicial');
+          note: tr('Stock inicial'));
       await _saveMovements();
     }
     await _saveProducts();
@@ -181,17 +247,17 @@ class InventoryService extends ChangeNotifier {
   Future<void> updateProduct(Product updated) async {
     final existing = productById(updated.id);
     if (existing == null) {
-      throw InventoryException('El producto ya no existe.');
+      throw InventoryException(tr('El producto ya no existe.'));
     }
     if (isBarcodeTaken(updated.barcode, exceptId: updated.id)) {
-      throw InventoryException('Ya existe otro producto con ese código.');
+      throw InventoryException(tr('Ya existe otro producto con ese código.'));
     }
     final difference = updated.stock - existing.stock;
     existing.applyFrom(updated);
     _dirtyProducts.add(existing.id);
     if (difference != 0) {
       _addMovement(existing, MovementType.ajuste, difference,
-          note: 'Edición de producto');
+          note: tr('Edición de producto'));
       await _saveMovements();
     }
     _sortProducts();
@@ -236,12 +302,14 @@ class InventoryService extends ChangeNotifier {
     int? newCostPrice,
   }) async {
     if (quantity <= 0) {
-      throw InventoryException('La cantidad debe ser mayor a cero.');
+      throw InventoryException(tr('La cantidad debe ser mayor a cero.'));
     }
     final adds = type == MovementType.entrada;
     if (!adds && quantity > product.stock) {
       throw InventoryException(
-          'No puedes descontar más de lo que hay (${formatQty(product.stock)} ${product.unit}).');
+          tr('No puedes descontar más de lo que hay ({qty}).', {
+        'qty': '${formatQty(product.stock)} ${unitLabel(product.unit)}',
+      }));
     }
     product.stock += adds ? quantity : -quantity;
     if (newCostPrice != null && newCostPrice >= 0) {
@@ -265,7 +333,7 @@ class InventoryService extends ChangeNotifier {
   Future<Sale> registerSale(
       List<CartItem> items, PaymentMethod paymentMethod) async {
     if (items.isEmpty) {
-      throw InventoryException('El carrito está vacío.');
+      throw InventoryException(tr('El carrito está vacío.'));
     }
 
     final resolved = <Product, double>{};
@@ -273,11 +341,15 @@ class InventoryService extends ChangeNotifier {
       final product = productById(item.product.id);
       if (product == null) {
         throw InventoryException(
-            '"${item.product.name}" fue eliminado. Quítalo del carrito.');
+            tr('"{name}" fue eliminado. Quítalo del carrito.',
+                {'name': item.product.name}));
       }
       if (item.quantity > product.stock) {
         throw InventoryException(
-            'Stock insuficiente de ${product.name} (quedan ${formatQty(product.stock)} ${product.unit}).');
+            tr('Stock insuficiente de {name} (quedan {qty}).', {
+          'name': product.name,
+          'qty': '${formatQty(product.stock)} ${unitLabel(product.unit)}',
+        }));
       }
       resolved[product] = item.quantity;
     }
@@ -307,7 +379,7 @@ class InventoryService extends ChangeNotifier {
       entry.key.updatedAt = sale.date;
       _dirtyProducts.add(entry.key.id);
       _addMovement(entry.key, MovementType.venta, -entry.value,
-          note: 'Venta N° ${sale.number}');
+          note: tr('Venta N° {n}', {'n': sale.number}));
     }
 
     _sales.insert(0, sale);
@@ -391,15 +463,15 @@ class InventoryService extends ChangeNotifier {
 
   String exportProductsCsv() {
     final buffer = StringBuffer(
-        'Nombre;Código;Categoría;Unidad;Costo;Precio;Stock;Stock mínimo\n');
+        '${tr('Nombre;Código;Categoría;Unidad;Costo;Precio;Stock;Stock mínimo')}\n');
     for (final p in _products) {
       buffer.writeln([
         p.name,
         p.barcode,
         p.category,
-        p.unit,
-        p.costPrice,
-        p.salePrice,
+        unitLabel(p.unit),
+        _currency.toPlain(p.costPrice),
+        _currency.toPlain(p.salePrice),
         formatQty(p.stock),
         formatQty(p.minStock),
       ].map(_csv).join(';'));
@@ -409,7 +481,7 @@ class InventoryService extends ChangeNotifier {
 
   String exportSalesCsv(int days) {
     final buffer = StringBuffer(
-        'Fecha;Venta N°;Producto;Cantidad;Precio unitario;Subtotal;Ganancia;Medio de pago\n');
+        '${tr('Fecha;Venta N°;Producto;Cantidad;Precio unitario;Subtotal;Ganancia;Medio de pago')}\n');
     for (final sale in salesLastDays(days)) {
       for (final item in sale.items) {
         buffer.writeln([
@@ -417,9 +489,9 @@ class InventoryService extends ChangeNotifier {
           sale.number,
           item.name,
           formatQty(item.quantity),
-          item.unitPrice,
-          item.subtotal,
-          item.profit,
+          _currency.toPlain(item.unitPrice),
+          _currency.toPlain(item.subtotal),
+          _currency.toPlain(item.profit),
           sale.paymentMethod.label,
         ].map(_csv).join(';'));
       }
@@ -446,23 +518,23 @@ class InventoryService extends ChangeNotifier {
   /// Productos de ejemplo para probar la app o grabar capturas para la tienda.
   Future<void> loadDemoData() async {
     final demo = <Product>[
-      Product(id: newId(), name: 'Bebida cola 1,5 L', barcode: '7801610001196', category: 'Bebidas', costPrice: 1350, salePrice: 1990, stock: 24, minStock: 6),
-      Product(id: newId(), name: 'Agua mineral 1,6 L', barcode: '7801620002345', category: 'Bebidas', costPrice: 650, salePrice: 1100, stock: 4, minStock: 6),
-      Product(id: newId(), name: 'Leche entera 1 L', barcode: '7802900001018', category: 'Lácteos', costPrice: 890, salePrice: 1290, stock: 18, minStock: 8),
-      Product(id: newId(), name: 'Pan marraqueta', category: 'Panadería', unit: 'kg', costPrice: 1500, salePrice: 2300, stock: 12.5, minStock: 5),
-      Product(id: newId(), name: 'Arroz grado 1, 1 kg', barcode: '7801320000127', category: 'Abarrotes', costPrice: 1150, salePrice: 1690, stock: 15, minStock: 5),
-      Product(id: newId(), name: 'Aceite maravilla 1 L', barcode: '7802810004561', category: 'Abarrotes', costPrice: 1990, salePrice: 2790, stock: 3, minStock: 4),
-      Product(id: newId(), name: 'Fideos spaghetti 400 g', barcode: '7802575001123', category: 'Abarrotes', costPrice: 690, salePrice: 1050, stock: 30, minStock: 10),
-      Product(id: newId(), name: 'Huevos bandeja 12', category: 'Frescos', costPrice: 2800, salePrice: 3790, stock: 8, minStock: 4),
-      Product(id: newId(), name: 'Té 100 bolsitas', barcode: '7802950006789', category: 'Abarrotes', costPrice: 2100, salePrice: 2990, stock: 10, minStock: 3),
-      Product(id: newId(), name: 'Azúcar 1 kg', barcode: '7801505000014', category: 'Abarrotes', costPrice: 990, salePrice: 1490, stock: 20, minStock: 6),
+      Product(id: newId(), name: tr('Bebida cola 1,5 L'), barcode: '7801610001196', category: tr('Bebidas'), costPrice: 1350, salePrice: 1990, stock: 24, minStock: 6),
+      Product(id: newId(), name: tr('Agua mineral 1,6 L'), barcode: '7801620002345', category: tr('Bebidas'), costPrice: 650, salePrice: 1100, stock: 4, minStock: 6),
+      Product(id: newId(), name: tr('Leche entera 1 L'), barcode: '7802900001018', category: tr('Lácteos'), costPrice: 890, salePrice: 1290, stock: 18, minStock: 8),
+      Product(id: newId(), name: tr('Pan marraqueta'), category: tr('Panadería'), unit: 'kg', costPrice: 1500, salePrice: 2300, stock: 12.5, minStock: 5),
+      Product(id: newId(), name: tr('Arroz grado 1, 1 kg'), barcode: '7801320000127', category: tr('Abarrotes'), costPrice: 1150, salePrice: 1690, stock: 15, minStock: 5),
+      Product(id: newId(), name: tr('Aceite maravilla 1 L'), barcode: '7802810004561', category: tr('Abarrotes'), costPrice: 1990, salePrice: 2790, stock: 3, minStock: 4),
+      Product(id: newId(), name: tr('Fideos spaghetti 400 g'), barcode: '7802575001123', category: tr('Abarrotes'), costPrice: 690, salePrice: 1050, stock: 30, minStock: 10),
+      Product(id: newId(), name: tr('Huevos bandeja 12'), category: tr('Frescos'), costPrice: 2800, salePrice: 3790, stock: 8, minStock: 4),
+      Product(id: newId(), name: tr('Té 100 bolsitas'), barcode: '7802950006789', category: tr('Abarrotes'), costPrice: 2100, salePrice: 2990, stock: 10, minStock: 3),
+      Product(id: newId(), name: tr('Azúcar 1 kg'), barcode: '7801505000014', category: tr('Abarrotes'), costPrice: 990, salePrice: 1490, stock: 20, minStock: 6),
     ];
     for (final product in demo) {
       if (!isBarcodeTaken(product.barcode)) {
         _products.add(product);
         _dirtyProducts.add(product.id);
         _addMovement(product, MovementType.entrada, product.stock,
-            note: 'Datos de ejemplo');
+            note: tr('Datos de ejemplo'));
       }
     }
     _sortProducts();

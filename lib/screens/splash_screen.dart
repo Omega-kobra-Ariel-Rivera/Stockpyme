@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/i18n.dart';
 import '../utils/constants.dart';
 import '../utils/theme.dart';
 import '../widgets/app_logo.dart';
@@ -72,9 +73,9 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        AppConstants.tagline,
-                        style: TextStyle(
+                      Text(
+                        tr(AppConstants.tagline),
+                        style: const TextStyle(
                           color: AppTheme.onBrandMuted,
                           fontSize: 15,
                         ),

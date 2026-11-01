@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/i18n.dart';
 import '../../models/admin_user.dart';
 
 /// Etiqueta de color con el plan de un usuario.
@@ -16,22 +17,22 @@ class PlanBadge extends StatelessWidget {
       AdminPlan.proMercadoPago => (
           scheme.primaryContainer,
           scheme.onPrimaryContainer,
-          'Pro'
+          tr('Pro')
         ),
       AdminPlan.proManual => (
           scheme.secondaryContainer,
           scheme.onSecondaryContainer,
-          'Pro manual'
+          tr('Pro manual')
         ),
       AdminPlan.trial => (
           scheme.tertiaryContainer,
           scheme.onTertiaryContainer,
-          'Prueba · ${trialDaysLeft}d'
+          tr('Prueba · {n}d', {'n': trialDaysLeft})
         ),
       AdminPlan.expired => (
           scheme.errorContainer,
           scheme.onErrorContainer,
-          'Vencida'
+          tr('Vencida')
         ),
     };
     return Container(
@@ -129,8 +130,8 @@ class AdminErrorView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               denied
-                  ? 'Tu correo no tiene permiso de administrador. Revisa la colección "admins" y las reglas de Firestore (ver README).'
-                  : 'No se pudieron cargar los datos. Revisa tu conexión.',
+                  ? tr('Tu correo no tiene permiso de administrador. Revisa la colección "admins" y las reglas de Firestore (ver README).')
+                  : tr('No se pudieron cargar los datos. Revisa tu conexión.'),
               textAlign: TextAlign.center,
             ),
           ],

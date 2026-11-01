@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../services/auth_service.dart';
 import '../services/inventory_service.dart';
 import '../utils/formatters.dart';
@@ -33,21 +34,21 @@ class DashboardScreen extends StatelessWidget {
             const AppLogo(size: 32),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(inv.businessName, overflow: TextOverflow.ellipsis),
+              child: Text(inv.businessLabel, overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
         actions: [
           if (context.watch<AuthService>().isAdmin)
             IconButton(
-              tooltip: 'Panel de administración',
+              tooltip: tr('Panel de administración'),
               icon: const Icon(Icons.admin_panel_settings_outlined),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AdminScreen()),
               ),
             ),
           IconButton(
-            tooltip: 'Ajustes',
+            tooltip: tr('Ajustes'),
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -75,12 +76,12 @@ class DashboardScreen extends StatelessWidget {
             children: [
               StatCard(
                 icon: Icons.warehouse_outlined,
-                label: 'Valor del inventario',
-                value: formatCLP(inv.inventoryValue),
+                label: tr('Valor del inventario'),
+                value: formatMoney(inv.inventoryValue),
               ),
               StatCard(
                 icon: Icons.warning_amber_rounded,
-                label: 'Productos con stock bajo',
+                label: tr('Productos con stock bajo'),
                 value: '${low.length}',
                 highlight: low.isNotEmpty,
               ),
@@ -90,25 +91,25 @@ class DashboardScreen extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => onNavigate(2),
             icon: const Icon(Icons.point_of_sale),
-            label: const Text('Nueva venta'),
+            label: Text(tr('Nueva venta')),
           ),
           const SizedBox(height: 24),
           _SectionHeader(
-            title: 'Stock bajo',
-            actionLabel: low.isEmpty ? null : 'Ver productos',
+            title: tr('Stock bajo'),
+            actionLabel: low.isEmpty ? null : tr('Ver productos'),
             onAction: () => onNavigate(1),
           ),
           if (inv.products.isEmpty)
             _InfoCard(
               icon: Icons.inventory_2_outlined,
-              message: 'Aún no tienes productos. Agrégalos en la pestaña Productos.',
-              actionLabel: 'Ir a productos',
+              message: tr('Aún no tienes productos. Agrégalos en la pestaña Productos.'),
+              actionLabel: tr('Ir a productos'),
               onAction: () => onNavigate(1),
             )
           else if (low.isEmpty)
-            const _InfoCard(
+            _InfoCard(
               icon: Icons.check_circle_outline,
-              message: 'Todo en orden: ningún producto bajo el mínimo.',
+              message: tr('Todo en orden: ningún producto bajo el mínimo.'),
             )
           else
             Card(
@@ -120,14 +121,14 @@ class DashboardScreen extends StatelessWidget {
             ),
           const SizedBox(height: 24),
           _SectionHeader(
-            title: 'Últimas ventas',
-            actionLabel: recent.isEmpty ? null : 'Ver reportes',
+            title: tr('Últimas ventas'),
+            actionLabel: recent.isEmpty ? null : tr('Ver reportes'),
             onAction: () => onNavigate(3),
           ),
           if (recent.isEmpty)
-            const _InfoCard(
+            _InfoCard(
               icon: Icons.receipt_long_outlined,
-              message: 'Las ventas que registres aparecerán aquí.',
+              message: tr('Las ventas que registres aparecerán aquí.'),
             )
           else
             Card(
@@ -140,10 +141,10 @@ class DashboardScreen extends StatelessWidget {
                         foregroundColor: scheme.onSecondaryContainer,
                         child: const Icon(Icons.receipt_outlined, size: 20),
                       ),
-                      title: Text(formatCLP(sale.total),
+                      title: Text(formatMoney(sale.total),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
-                          'N° ${sale.number} · ${formatDateTime(sale.date)} · ${sale.paymentMethod.label}'),
+                          '${tr('N°')} ${sale.number} · ${formatDateTime(sale.date)} · ${sale.paymentMethod.label}'),
                     ),
                 ],
               ),
@@ -186,8 +187,8 @@ class _TodaySummary extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text(
-                'Ventas de hoy',
+              Text(
+                tr('Ventas de hoy'),
                 style: TextStyle(
                   color: AppTheme.onBrandMuted,
                   fontSize: 14,
@@ -209,7 +210,7 @@ class _TodaySummary extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              formatCLP(total),
+              formatMoney(total),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 36,
@@ -225,11 +226,13 @@ class _TodaySummary extends StatelessWidget {
             children: [
               _SummaryPill(
                 icon: Icons.receipt_long_outlined,
-                label: count == 1 ? '1 venta' : '$count ventas',
+                label: count == 1
+                    ? tr('1 venta')
+                    : tr('{n} ventas', {'n': count}),
               ),
               _SummaryPill(
                 icon: Icons.trending_up,
-                label: 'Ganancia ${formatCLP(profit)}',
+                label: tr('Ganancia {amount}', {'amount': formatMoney(profit)}),
               ),
             ],
           ),

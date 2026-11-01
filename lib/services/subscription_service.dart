@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/i18n.dart';
 import '../utils/constants.dart';
 import '../utils/formatters.dart';
 import '../utils/id_generator.dart';
@@ -83,7 +84,7 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   PremiumPlan get plan => _plan;
 
   /// Precio del plan contratado, por ejemplo "$49.900 al año".
-  String get priceLabel => '${formatCLP(_plan.price)} ${_plan.period}';
+  String get priceLabel => '${formatCLP(_plan.price)} ${tr(_plan.period)}';
 
   void selectPlan(PremiumPlan plan) {
     if (_subscribed || plan == _plan) return;
@@ -175,7 +176,8 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     _info = null;
     if (email != null) await setPayerEmail(email);
     if (!_emailPattern.hasMatch(_payerEmail)) {
-      _error = 'Escribe un correo válido. Mercado Pago lo usa para tu suscripción.';
+      _error = tr(
+          'Escribe un correo válido. Mercado Pago lo usa para tu suscripción.');
       notifyListeners();
       return;
     }
@@ -198,7 +200,7 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
 
       if (response.statusCode != 200 || data['init_point'] == null) {
         _error = (data['error'] as String?) ??
-            'No se pudo iniciar el pago. Inténtalo otra vez.';
+            tr('No se pudo iniciar el pago. Inténtalo otra vez.');
         return;
       }
 
@@ -213,15 +215,18 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
         mode: LaunchMode.externalApplication,
       );
       if (!opened) {
-        _error = 'No se pudo abrir Mercado Pago en este teléfono.';
+        _error = tr(
+          'No se pudo abrir Mercado Pago en este teléfono.');
       } else {
-        _info =
-            'Completa el pago en Mercado Pago y vuelve a StockPyme. Lo revisaremos al volver.';
+        _info = tr(
+          'Completa el pago en Mercado Pago y vuelve a StockPyme. Lo revisaremos al volver.');
       }
     } on TimeoutException {
-      _error = 'Mercado Pago está tardando. Revisa tu conexión e inténtalo otra vez.';
+      _error = tr(
+          'Mercado Pago está tardando. Revisa tu conexión e inténtalo otra vez.');
     } catch (_) {
-      _error = 'Sin conexión. Conéctate a internet para pagar.';
+      _error = tr(
+          'Sin conexión. Conéctate a internet para pagar.');
     } finally {
       _loading = false;
       notifyListeners();
@@ -234,7 +239,8 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     final id = _preapprovalId;
     if (id == null) {
       if (!silent) {
-        _error = 'Aún no has iniciado un pago desde este teléfono.';
+        _error = tr(
+          'Aún no has iniciado un pago desde este teléfono.');
         notifyListeners();
       }
       return;
@@ -255,7 +261,7 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
       if (response.statusCode != 200) {
         if (!silent) {
           _error = (data['error'] as String?) ??
-              'No se pudo revisar el pago. Inténtalo más tarde.';
+            tr('No se pudo revisar el pago. Inténtalo más tarde.');
         }
         return;
       }
@@ -276,15 +282,16 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
           _info = null;
         case 'pending':
           if (!silent) {
-            _info = 'El pago aún está pendiente en Mercado Pago.';
+            _info = tr(
+          'El pago aún está pendiente en Mercado Pago.');
           }
         case 'paused':
         case 'cancelled':
           await _setSubscribed(false);
           if (!silent) {
             _error = status == 'paused'
-                ? 'Tu suscripción está pausada en Mercado Pago.'
-                : 'Tu suscripción fue cancelada. Puedes suscribirte otra vez.';
+                ? tr('Tu suscripción está pausada en Mercado Pago.')
+                : tr('Tu suscripción fue cancelada. Puedes suscribirte otra vez.');
           }
           if (status == 'cancelled') {
             _preapprovalId = null;
@@ -292,10 +299,12 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
           }
       }
     } on TimeoutException {
-      if (!silent) _error = 'Mercado Pago está tardando. Inténtalo otra vez.';
+      if (!silent) _error = tr(
+          'Mercado Pago está tardando. Inténtalo otra vez.');
     } catch (_) {
       // Sin conexión: se mantiene el último estado guardado.
-      if (!silent) _error = 'Sin conexión. Conéctate a internet para revisar el pago.';
+      if (!silent) _error = tr(
+          'Sin conexión. Conéctate a internet para revisar el pago.');
     } finally {
       _loading = false;
       notifyListeners();

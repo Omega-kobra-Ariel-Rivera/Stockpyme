@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../l10n/i18n.dart';
 import '../utils/constants.dart';
+import '../utils/platform.dart';
 
 /// Error de inicio de sesión con un mensaje listo para mostrar.
 class AuthFailure implements Exception {
@@ -40,7 +42,7 @@ class AuthService extends ChangeNotifier {
     final name = _user?.displayName?.trim() ?? '';
     if (name.isNotEmpty) return name;
     final email = _user?.email ?? '';
-    return email.contains('@') ? email.split('@').first : 'Usuario';
+    return email.contains('@') ? email.split('@').first : tr('Usuario');
   }
 
   String get email => _user?.email ?? '';
@@ -89,7 +91,7 @@ class AuthService extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       throw AuthFailure(_message(e));
     } catch (_) {
-      throw AuthFailure('No se pudo iniciar sesión. Revisa tu conexión.');
+      throw AuthFailure(tr('No se pudo iniciar sesión. Revisa tu conexión.'));
     }
   }
 
@@ -112,7 +114,7 @@ class AuthService extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       throw AuthFailure(_message(e));
     } catch (_) {
-      throw AuthFailure('No se pudo crear la cuenta. Revisa tu conexión.');
+      throw AuthFailure(tr('No se pudo crear la cuenta. Revisa tu conexión.'));
     }
   }
 
@@ -122,7 +124,7 @@ class AuthService extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       throw AuthFailure(_message(e));
     } catch (_) {
-      throw AuthFailure('No se pudo enviar el correo. Revisa tu conexión.');
+      throw AuthFailure(tr('No se pudo enviar el correo. Revisa tu conexión.'));
     }
   }
 
@@ -131,6 +133,9 @@ class AuthService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<void> signInWithGoogle() async {
+    if (!AppPlatform.hasGoogleSignIn) {
+      throw AuthFailure(tr('En el PC entra con tu correo y contraseña. Si creaste la cuenta con Google, usa "¿Olvidaste tu contraseña?" para crear una.'));
+    }
     final provider = GoogleAuthProvider()
       ..addScope('email')
       ..setCustomParameters({'prompt': 'select_account'});
@@ -144,7 +149,7 @@ class AuthService extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       throw AuthFailure(_message(e));
     } catch (_) {
-      throw AuthFailure('No se pudo entrar con Google. Inténtalo otra vez.');
+      throw AuthFailure(tr('No se pudo entrar con Google. Inténtalo otra vez.'));
     }
   }
 
@@ -158,32 +163,32 @@ class AuthService extends ChangeNotifier {
   String _message(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
-        return 'El correo no es válido.';
+        return tr('El correo no es válido.');
       case 'user-disabled':
-        return 'Esta cuenta está desactivada. Escríbenos para revisarla.';
+        return tr('Esta cuenta está desactivada. Escríbenos para revisarla.');
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
       case 'INVALID_LOGIN_CREDENTIALS':
-        return 'Correo o contraseña incorrectos.';
+        return tr('Correo o contraseña incorrectos.');
       case 'email-already-in-use':
-        return 'Ese correo ya tiene una cuenta. Inicia sesión.';
+        return tr('Ese correo ya tiene una cuenta. Inicia sesión.');
       case 'weak-password':
-        return 'La contraseña es muy débil. Usa al menos 6 caracteres.';
+        return tr('La contraseña es muy débil. Usa al menos 6 caracteres.');
       case 'too-many-requests':
-        return 'Demasiados intentos. Espera unos minutos.';
+        return tr('Demasiados intentos. Espera unos minutos.');
       case 'network-request-failed':
-        return 'Sin conexión a internet.';
+        return tr('Sin conexión a internet.');
       case 'account-exists-with-different-credential':
-        return 'Ese correo ya está registrado con otro método. Entra con tu contraseña.';
+        return tr('Ese correo ya está registrado con otro método. Entra con tu contraseña.');
       case 'popup-closed-by-user':
       case 'web-context-canceled':
       case 'canceled':
-        return 'Cancelaste el inicio de sesión con Google.';
+        return tr('Cancelaste el inicio de sesión con Google.');
       case 'operation-not-allowed':
-        return 'Este método de inicio de sesión no está activado en Firebase.';
+        return tr('Este método de inicio de sesión no está activado en Firebase.');
       default:
-        return 'No se pudo iniciar sesión (${e.code}).';
+        return tr('No se pudo iniciar sesión ({code}).', {'code': e.code});
     }
   }
 

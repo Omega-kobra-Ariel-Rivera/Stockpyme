@@ -3,15 +3,18 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'l10n/i18n.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/cart_service.dart';
 import 'services/cloud_sync_service.dart';
 import 'services/inventory_service.dart';
+import 'services/language_service.dart';
 import 'services/storage_service.dart';
 import 'services/subscription_service.dart';
 import 'utils/constants.dart';
@@ -37,8 +40,18 @@ void main() {
 /// App con el tema de StockPyme. Hay una por estado (cargando, sin sesión,
 /// con sesión) para que los datos de cada cuenta queden por encima de la
 /// navegación y todas las pantallas los vean.
+///
+/// Al cambiar el idioma cambia la clave y toda la app se vuelve a dibujar.
 Widget _app(Widget home) => MaterialApp(
+      key: ValueKey(I18n.current),
       title: AppConstants.appName,
+      locale: I18n.current.locale,
+      supportedLocales: [for (final l in AppLanguage.values) l.locale],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
@@ -56,6 +69,7 @@ class _Bootstrap extends StatefulWidget {
 class _BootstrapState extends State<_Bootstrap> {
   StorageService? _storage;
   AuthService? _auth;
+  LanguageService? _language;
   String? _error;
 
   @override
@@ -77,6 +91,7 @@ class _BootstrapState extends State<_Bootstrap> {
       if (!mounted) return;
       setState(() {
         _storage = storage;
+        _language ??= LanguageService(storage)..addListener(_onLanguage);
         _auth ??= AuthService();
       });
     } on UnsupportedError catch (e) {
@@ -86,8 +101,12 @@ class _BootstrapState extends State<_Bootstrap> {
     }
   }
 
+  void _onLanguage() => setState(() {});
+
   @override
   void dispose() {
+    _language?.removeListener(_onLanguage);
+    _language?.dispose();
     _auth?.dispose();
     super.dispose();
   }
@@ -96,13 +115,19 @@ class _BootstrapState extends State<_Bootstrap> {
   Widget build(BuildContext context) {
     final storage = _storage;
     final auth = _auth;
+    final language = _language;
     if (_error != null) {
       return _app(_ErrorView(message: _error!, onRetry: _load));
     }
-    if (storage == null || auth == null) return _app(const _LoadingView());
+    if (storage == null || auth == null || language == null) {
+      return _app(const _LoadingView());
+    }
 
-    return ChangeNotifierProvider.value(
-      value: auth,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider.value(value: language),
+      ],
       child: Consumer<AuthService>(
         builder: (context, session, _) {
           if (!session.ready) return _app(const _LoadingView());
@@ -261,10 +286,10 @@ class _ErrorView extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, color: Colors.white, size: 48),
               const SizedBox(height: 12),
-              const Text(
-                'No se pudo iniciar StockPyme',
+              Text(
+                tr('No se pudo iniciar StockPyme'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -285,7 +310,7 @@ class _ErrorView extends StatelessWidget {
                     side: const BorderSide(color: Colors.white),
                     minimumSize: const Size(160, 48),
                   ),
-                  child: const Text('Reintentar'),
+                  child: Text(tr('Reintentar')),
                 ),
               ],
             ],

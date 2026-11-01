@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../services/cart_service.dart';
 import '../services/inventory_service.dart';
@@ -34,7 +35,10 @@ class _SaleScreenState extends State<SaleScreen> {
     if (available <= 0) {
       showMessage(
         context,
-        'Sin stock suficiente de ${product.name} (quedan ${formatQty(product.stock)}).',
+        tr('Sin stock suficiente de {name} (quedan {qty}).', {
+          'name': product.name,
+          'qty': formatQty(product.stock),
+        }),
         error: true,
       );
       return;
@@ -47,13 +51,12 @@ class _SaleScreenState extends State<SaleScreen> {
   }
 
   Future<void> _scanAdd() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const ScannerScreen()),
-    );
+    final code = await scanBarcode(context);
     if (code == null || !mounted) return;
     final product = context.read<InventoryService>().findByBarcode(code);
     if (product == null) {
-      showMessage(context, 'No hay productos con el código $code.',
+      showMessage(
+          context, tr('No hay productos con el código {code}.', {'code': code}),
           error: true);
       return;
     }
@@ -71,20 +74,20 @@ class _SaleScreenState extends State<SaleScreen> {
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            labelText: 'Cantidad (${item.product.unit})',
-            helperText: 'Disponible: ${formatQty(item.product.stock)}',
+            labelText: tr('Cantidad ({unit})', {'unit': unitLabel(item.product.unit)}),
+            helperText: tr('Disponible: {qty}', {'qty': formatQty(item.product.stock)}),
           ),
           onSubmitted: (v) => Navigator.of(dialogContext).pop(parseQty(v)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(parseQty(controller.text)),
-            child: const Text('Aceptar'),
+            child: Text(tr('Aceptar')),
           ),
         ],
       ),
@@ -92,7 +95,10 @@ class _SaleScreenState extends State<SaleScreen> {
     controller.dispose();
     if (value == null || !mounted) return;
     if (value > item.product.stock) {
-      showMessage(context, 'Solo hay ${formatQty(item.product.stock)} disponibles.',
+      showMessage(
+          context,
+          tr('Solo hay {qty} disponibles.',
+              {'qty': formatQty(item.product.stock)}),
           error: true);
       return;
     }
@@ -101,7 +107,8 @@ class _SaleScreenState extends State<SaleScreen> {
 
   void _increment(CartItem item) {
     if (item.quantity + 1 > item.product.stock) {
-      showMessage(context, 'No hay más stock de ${item.product.name}.',
+      showMessage(
+          context, tr('No hay más stock de {name}.', {'name': item.product.name}),
           error: true);
       return;
     }
@@ -117,16 +124,16 @@ class _SaleScreenState extends State<SaleScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Vaciar carrito'),
-        content: const Text('¿Quitar todos los productos del carrito?'),
+        title: Text(tr('Vaciar carrito')),
+        content: Text(tr('¿Quitar todos los productos del carrito?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Vaciar'),
+            child: Text(tr('Vaciar')),
           ),
         ],
       ),
@@ -150,9 +157,16 @@ class _SaleScreenState extends State<SaleScreen> {
       cart.clear();
       if (!mounted) return;
       final cash = result.cashReceived;
-      final change = cash == null ? '' : ' · Vuelto: ${formatCLP(cash - sale.total)}';
-      showMessage(context,
-          'Venta N° ${sale.number} registrada: ${formatCLP(sale.total)}$change');
+      final change = cash == null
+          ? ''
+          : ' · ${tr('Vuelto: {amount}', {'amount': formatMoney(cash - sale.total)})}';
+      showMessage(
+          context,
+          tr('Venta N° {n} registrada: {amount}', {
+                'n': sale.number,
+                'amount': formatMoney(sale.total),
+              }) +
+              change);
     } on InventoryException catch (e) {
       if (mounted) showMessage(context, e.message, error: true);
     } finally {
@@ -170,11 +184,11 @@ class _SaleScreenState extends State<SaleScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vender'),
+        title: Text(tr('Vender')),
         actions: [
           if (!cart.isEmpty)
             IconButton(
-              tooltip: 'Vaciar carrito',
+              tooltip: tr('Vaciar carrito'),
               icon: const Icon(Icons.remove_shopping_cart_outlined),
               onPressed: _confirmClear,
             ),
@@ -193,15 +207,15 @@ class _SaleScreenState extends State<SaleScreen> {
                     onSubmitted: (_) {
                       if (suggestions.length == 1) _addToCart(suggestions.first);
                     },
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       prefixIcon: Icon(Icons.search),
-                      hintText: 'Buscar producto',
+                      hintText: tr('Buscar producto'),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  tooltip: 'Escanear',
+                  tooltip: tr('Escanear'),
                   iconSize: 28,
                   onPressed: _scanAdd,
                   icon: const Icon(Icons.qr_code_scanner),
@@ -221,9 +235,9 @@ class _SaleScreenState extends State<SaleScreen> {
                         enabled: p.stock > 0,
                         title: Text(p.name),
                         subtitle: Text(p.stock > 0
-                            ? 'Stock: ${formatQty(p.stock)} ${p.unit}'
-                            : 'Sin stock'),
-                        trailing: Text(formatCLP(p.salePrice),
+                            ? tr('Stock: {qty}', {'qty': '${formatQty(p.stock)} ${unitLabel(p.unit)}'})
+                            : tr('Sin stock')),
+                        trailing: Text(formatMoney(p.salePrice),
                             style: const TextStyle(fontWeight: FontWeight.w700)),
                         onTap: () => _addToCart(p),
                       ),
@@ -233,10 +247,10 @@ class _SaleScreenState extends State<SaleScreen> {
             ),
           Expanded(
             child: cart.isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.shopping_cart_outlined,
-                    title: 'Carrito vacío',
-                    message: 'Escanea o busca productos para agregarlos a la venta.',
+                    title: tr('Carrito vacío'),
+                    message: tr('Escanea o busca productos para agregarlos a la venta.'),
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -292,14 +306,14 @@ class _CartLine extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: text.titleSmall),
                 Text(
-                  '${formatCLP(item.product.salePrice)} c/${item.product.unit} · ${formatCLP(item.subtotal)}',
+                  '${formatMoney(item.product.salePrice)} ${tr('c/')}${unitLabel(item.product.unit)} · ${formatMoney(item.subtotal)}',
                   style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Quitar uno',
+            tooltip: tr('Quitar uno'),
             icon: const Icon(Icons.remove_circle_outline),
             onPressed: onDecrement,
           ),
@@ -321,7 +335,7 @@ class _CartLine extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Agregar uno',
+            tooltip: tr('Agregar uno'),
             icon: const Icon(Icons.add_circle_outline),
             onPressed: onIncrement,
           ),
@@ -361,13 +375,16 @@ class _CheckoutBar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$lines ${lines == 1 ? 'producto' : 'productos'}',
+                    Text(
+                        lines == 1
+                            ? tr('1 producto')
+                            : tr('{n} productos', {'n': lines}),
                         style: text.bodySmall),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        formatCLP(total),
+                        formatMoney(total),
                         style: text.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
@@ -387,7 +404,7 @@ class _CheckoutBar extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.payments_outlined),
-                  label: const Text('Cobrar'),
+                  label: Text(tr('Cobrar')),
                 ),
               ),
             ],

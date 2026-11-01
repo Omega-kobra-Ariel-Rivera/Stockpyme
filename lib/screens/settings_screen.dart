@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../services/auth_service.dart';
+import '../services/language_service.dart';
 import '../services/cart_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/inventory_service.dart';
@@ -23,22 +25,22 @@ class SettingsScreen extends StatelessWidget {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Nombre del negocio'),
+        title: Text(tr('Nombre del negocio')),
         content: TextField(
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'Ej: Almacén Don Pedro'),
+          decoration: InputDecoration(hintText: tr('Ej: Almacén Don Pedro')),
           onSubmitted: (v) => Navigator.of(dialogContext).pop(v),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Guardar'),
+            child: Text(tr('Guardar')),
           ),
         ],
       ),
@@ -51,17 +53,17 @@ class SettingsScreen extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Borrar todos los datos'),
-        content: const Text(
-            'Se eliminarán productos, ventas y movimientos de este teléfono y de tu respaldo en la nube. Esta acción no se puede deshacer. Te recomendamos exportar antes.'),
+        title: Text(tr('Borrar todos los datos')),
+        content: Text(
+            tr('Se eliminarán productos, ventas y movimientos de este teléfono y de tu respaldo en la nube. Esta acción no se puede deshacer. Te recomendamos exportar antes.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Borrar todo'),
+            child: Text(tr('Borrar todo')),
           ),
         ],
       ),
@@ -69,24 +71,24 @@ class SettingsScreen extends StatelessWidget {
     if (confirm != true || !context.mounted) return;
     context.read<CartService>().clear();
     await context.read<InventoryService>().deleteAllData();
-    if (context.mounted) showMessage(context, 'Datos eliminados');
+    if (context.mounted) showMessage(context, tr('Datos eliminados'));
   }
 
   Future<void> _signOut(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text(
-            'Tus datos quedan guardados en este teléfono y en la nube. Podrás verlos otra vez al iniciar sesión.'),
+        title: Text(tr('Cerrar sesión')),
+        content: Text(
+            tr('Tus datos quedan guardados en este teléfono y en la nube. Podrás verlos otra vez al iniciar sesión.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Cerrar sesión'),
+            child: Text(tr('Cerrar sesión')),
           ),
         ],
       ),
@@ -99,12 +101,82 @@ class SettingsScreen extends StatelessWidget {
     await auth.signOut();
   }
 
+  Future<void> _pickCurrency(BuildContext context) async {
+    final inv = context.read<InventoryService>();
+    final chosen = await showDialog<AppCurrency>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(tr('Moneda del negocio')),
+        children: [
+          for (final c in AppCurrency.values)
+            ListTile(
+              title: Text('${tr(c.label)} (${c.code})'),
+              subtitle: Text(c.format(123456)),
+              trailing: c == inv.currency ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.of(dialogContext).pop(c),
+            ),
+        ],
+      ),
+    );
+    if (chosen == null || chosen == inv.currency || !context.mounted) return;
+
+    // Si ya hay precios, avisa que no se convierten.
+    if (inv.products.isNotEmpty || inv.sales.isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(tr('Cambiar moneda')),
+          content: Text(tr(
+              'Tus precios y ventas quedan con el mismo número en la moneda nueva (por ejemplo, {from} pasa a {to}). No se convierten con el tipo de cambio: revisa tus precios después.',
+              {
+                'from': inv.currency.format(1290 * inv.currency.factor),
+                'to': chosen.format(1290 * chosen.factor),
+              })),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(tr('Cancelar')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(tr('Cambiar')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !context.mounted) return;
+    }
+    await inv.setCurrency(chosen);
+    if (context.mounted) {
+      showMessage(context, tr('Moneda cambiada a {name}', {'name': tr(chosen.label)}));
+    }
+  }
+
+  Future<void> _pickLanguage(BuildContext context) async {
+    final language = context.read<LanguageService>();
+    final chosen = await showDialog<AppLanguage>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(tr('Idioma de la app')),
+        children: [
+          for (final l in AppLanguage.values)
+            ListTile(
+              title: Text(l.nativeName),
+              trailing: l == language.language ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.of(dialogContext).pop(l),
+            ),
+        ],
+      ),
+    );
+    if (chosen != null) await language.setLanguage(chosen);
+  }
+
   String _syncLabel(CloudSyncService sync) {
-    if (sync.syncing) return 'Respaldando…';
+    if (sync.syncing) return tr('Respaldando…');
     if (sync.error != null) return sync.error!;
     final last = sync.lastSync;
-    if (last == null) return 'Toca para respaldar ahora';
-    return 'Último respaldo: ${formatDateTime(last)}';
+    if (last == null) return tr('Toca para respaldar ahora');
+    return tr('Último respaldo: {date}', {'date': formatDateTime(last)});
   }
 
   @override
@@ -117,20 +189,22 @@ class SettingsScreen extends StatelessWidget {
 
     final String subStatus;
     if (sub.manualProActive && !sub.mercadoPagoActive) {
-      subStatus = 'Activa hasta el ${formatDate(sub.manualProUntil!)}';
+      subStatus = tr('Activa hasta el {date}',
+          {'date': formatDate(sub.manualProUntil!)});
     } else if (sub.isSubscribed) {
-      subStatus = 'Activa · ${sub.priceLabel}';
+      subStatus = tr('Activa · {price}', {'price': sub.priceLabel});
     } else if (sub.inTrial) {
-      subStatus = 'Prueba gratis: ${sub.trialDaysLeft} días restantes';
+      subStatus = tr('Prueba gratis: {n} días restantes',
+          {'n': sub.trialDaysLeft});
     } else {
-      subStatus = 'Prueba terminada';
+      subStatus = tr('Prueba terminada');
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ajustes')),
+      appBar: AppBar(title: Text(tr('Ajustes'))),
       body: ListView(
         children: [
-          const _Header('Cuenta'),
+          _Header(tr('Cuenta')),
           ListTile(
             leading: CircleAvatar(
               backgroundColor: scheme.primaryContainer,
@@ -152,7 +226,7 @@ class SettingsScreen extends StatelessWidget {
                   : Icons.cloud_off_outlined,
               color: sync.error == null ? scheme.primary : scheme.error,
             ),
-            title: const Text('Respaldo en la nube'),
+            title: Text(tr('Respaldo en la nube')),
             subtitle: Text(_syncLabel(sync)),
             onTap: sync.syncing ? null : () => sync.syncNow(),
           ),
@@ -160,8 +234,8 @@ class SettingsScreen extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.admin_panel_settings_outlined,
                   color: scheme.tertiary),
-              title: const Text('Panel de administración'),
-              subtitle: const Text('Usuarios, negocios e inventarios'),
+              title: Text(tr('Panel de administración')),
+              subtitle: Text(tr('Usuarios, negocios e inventarios')),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AdminScreen()),
@@ -169,17 +243,31 @@ class SettingsScreen extends StatelessWidget {
             ),
           ListTile(
             leading: const Icon(Icons.logout),
-            title: const Text('Cerrar sesión'),
+            title: Text(tr('Cerrar sesión')),
             onTap: () => _signOut(context),
           ),
-          const _Header('Negocio'),
+          _Header(tr('Negocio')),
           ListTile(
             leading: const Icon(Icons.storefront_outlined),
-            title: const Text('Nombre del negocio'),
-            subtitle: Text(inv.businessName),
+            title: Text(tr('Nombre del negocio')),
+            subtitle: Text(inv.businessLabel),
             onTap: () => _editBusinessName(context),
           ),
-          const _Header('Suscripción'),
+          ListTile(
+            leading: const Icon(Icons.payments_outlined),
+            title: Text(tr('Moneda')),
+            subtitle: Text(
+                '${tr(inv.currency.label)} (${inv.currency.code}) · ${formatMoney(123456)}'),
+            onTap: () => _pickCurrency(context),
+          ),
+          _Header(tr('Idioma')),
+          ListTile(
+            leading: const Icon(Icons.language),
+            title: Text(tr('Idioma de la app')),
+            subtitle: Text(context.watch<LanguageService>().language.nativeName),
+            onTap: () => _pickLanguage(context),
+          ),
+          _Header(tr('Suscripción')),
           ListTile(
             leading: const Icon(Icons.workspace_premium_outlined),
             title: Text('${AppConstants.appName} Pro'),
@@ -189,41 +277,42 @@ class SettingsScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const PaywallScreen()),
             ),
           ),
-          const _Header('Datos'),
+          _Header(tr('Datos')),
           ListTile(
             leading: const Icon(Icons.table_view_outlined),
-            title: const Text('Copiar inventario (CSV)'),
-            subtitle: const Text('Para pegar en Excel o Google Sheets'),
+            title: Text(tr('Copiar inventario (CSV)')),
+            subtitle: Text(tr('Para pegar en Excel o Google Sheets')),
             onTap: () async {
               await Clipboard.setData(
                   ClipboardData(text: inv.exportProductsCsv()));
-              if (context.mounted) showMessage(context, 'Inventario copiado');
+              if (context.mounted) showMessage(context, tr('Inventario copiado'));
             },
           ),
           ListTile(
             leading: const Icon(Icons.auto_awesome_outlined),
-            title: const Text('Cargar productos de ejemplo'),
-            subtitle: const Text('Útil para probar la app'),
+            title: Text(tr('Cargar productos de ejemplo')),
+            subtitle: Text(tr('Útil para probar la app')),
             onTap: () async {
               await inv.loadDemoData();
-              if (context.mounted) showMessage(context, 'Productos de ejemplo agregados');
+              if (context.mounted) showMessage(context, tr('Productos de ejemplo agregados'));
             },
           ),
           ListTile(
             leading: Icon(Icons.delete_forever_outlined, color: scheme.error),
-            title: Text('Borrar todos los datos',
+            title: Text(tr('Borrar todos los datos'),
                 style: TextStyle(color: scheme.error)),
             onTap: () => _deleteAll(context),
           ),
-          const _Header('Acerca de'),
+          _Header(tr('Acerca de')),
           ListTile(
             leading: const AppLogo(size: 40),
             title: Text('${AppConstants.appName} ${AppConstants.appVersion}'),
-            subtitle: const Text(AppConstants.tagline),
+            subtitle: Text(tr(AppConstants.tagline)),
           ),
           ListTile(
             leading: const CompanyLogo(size: 40),
-            title: const Text('Desarrollado por ${AppConstants.company}'),
+            title: Text(tr('Desarrollado por {company}',
+                {'company': AppConstants.company})),
             subtitle: const Text(AppConstants.companyLocation),
           ),
           const SizedBox(height: 24),

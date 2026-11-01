@@ -1,3 +1,4 @@
+import '../l10n/i18n.dart';
 import '../utils/id_generator.dart';
 
 enum MovementType {
@@ -6,8 +7,9 @@ enum MovementType {
   venta('Venta'),
   ajuste('Ajuste');
 
-  const MovementType(this.label);
-  final String label;
+  const MovementType(this.spanishLabel);
+  final String spanishLabel;
+  String get label => tr(spanishLabel);
 }
 
 class StockMovement {

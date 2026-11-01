@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../services/auth_service.dart';
 import '../services/subscription_service.dart';
 import '../utils/constants.dart';
 import '../utils/formatters.dart';
 import '../widgets/app_logo.dart';
 
-/// Pantalla de suscripción: pago mensual con Mercado Pago.
+/// Pantalla de suscripción: planes mensual, semestral y anual con Mercado Pago.
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
 
@@ -18,6 +19,7 @@ class PaywallScreen extends StatefulWidget {
 class _PaywallScreenState extends State<PaywallScreen> {
   static const Color _mercadoPagoBlue = Color(0xFF009EE3);
 
+  // Textos en español; se traducen al mostrarlos.
   static const _features = [
     (Icons.qr_code_scanner, 'Productos ilimitados con escáner de código de barras'),
     (Icons.point_of_sale, 'Punto de venta con cálculo de vuelto'),
@@ -46,15 +48,28 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
     final String status;
     if (sub.isSubscribed) {
-      status =
-          'Tu suscripción está activa. Gracias por confiar en ${AppConstants.appName}.';
+      status = tr('Tu suscripción está activa. Gracias por confiar en {app}.',
+          {'app': AppConstants.appName});
     } else if (sub.inTrial) {
-      status =
-          'Te ${sub.trialDaysLeft == 1 ? 'queda 1 día' : 'quedan ${sub.trialDaysLeft} días'} de prueba gratis.';
+      status = sub.trialDaysLeft == 1
+          ? tr('Te queda 1 día de prueba gratis.')
+          : tr('Te quedan {n} días de prueba gratis.', {'n': sub.trialDaysLeft});
     } else {
       status =
-          'Tu prueba gratis terminó. Suscríbete para seguir vendiendo y controlando tu stock. Tus datos siguen guardados.';
+          tr('Tu prueba gratis terminó. Suscríbete para seguir vendiendo y controlando tu stock. Tus datos siguen guardados.');
     }
+
+    final String renewal = switch (sub.plan) {
+          PremiumPlan.anual => tr(
+              'Pagas una vez al año y se renueva solo. Cancela cuando quieras desde tu cuenta de Mercado Pago.'),
+          PremiumPlan.semestral => tr(
+              'Pagas cada 6 meses y se renueva solo. Cancela cuando quieras desde tu cuenta de Mercado Pago.'),
+          PremiumPlan.mensual => tr(
+              'Cobro automático cada mes con Mercado Pago. Cancela cuando quieras desde tu cuenta de Mercado Pago.'),
+        };
+    final planInfo = Money.currency == AppCurrency.clp
+        ? renewal
+        : '$renewal\n${tr('Los planes se cobran en pesos chilenos (CLP).')}';
 
     return Scaffold(
       appBar: AppBar(),
@@ -88,7 +103,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           size: 20, color: scheme.onPrimaryContainer),
                     ),
                     const SizedBox(width: 14),
-                    Expanded(child: Text(label, style: text.bodyLarge)),
+                    Expanded(child: Text(tr(label), style: text.bodyLarge)),
                   ],
                 ),
               ),
@@ -103,9 +118,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: 12),
             ],
             Text(
-              sub.plan == PremiumPlan.anual
-                  ? 'Pagas una vez al año y se renueva solo. Cancela cuando quieras desde tu cuenta de Mercado Pago.'
-                  : 'Cobro automático cada mes con Mercado Pago. Cancela cuando quieras desde tu cuenta de Mercado Pago.',
+              planInfo,
               textAlign: TextAlign.center,
               style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
@@ -114,7 +127,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               FilledButton.icon(
                 onPressed: null,
                 icon: const Icon(Icons.check_circle),
-                label: const Text('Suscripción activa'),
+                label: Text(tr('Suscripción activa')),
               )
             else ...[
               TextField(
@@ -122,8 +135,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 enabled: !sub.loading,
-                decoration: const InputDecoration(
-                  labelText: 'Correo de tu cuenta de Mercado Pago',
+                decoration: InputDecoration(
+                  labelText: tr('Correo de tu cuenta de Mercado Pago'),
                   hintText: 'nombre@correo.cl',
                   prefixIcon: Icon(Icons.mail_outline),
                 ),
@@ -147,13 +160,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                       )
                     : const Icon(Icons.lock_outline),
-                label: Text(
-                    'Pagar ${formatCLP(sub.plan.price)} con Mercado Pago'),
+                label: Text(tr('Pagar {price} con Mercado Pago',
+                    {'price': formatCLP(sub.plan.price)})),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: sub.loading ? null : () => sub.checkPayment(),
-                child: const Text('Ya pagué: revisar mi pago'),
+                child: Text(tr('Ya pagué: revisar mi pago')),
               ),
             ],
             if (sub.info != null) ...[
@@ -181,7 +194,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    'Pago seguro procesado por Mercado Pago',
+                    tr('Pago seguro procesado por Mercado Pago'),
                     style: text.bodySmall
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
@@ -197,7 +210,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 }
 
-/// Tarjeta seleccionable de un plan (mensual o anual).
+/// Tarjeta seleccionable de un plan.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
@@ -216,6 +229,7 @@ class _PlanCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final best = plan == PremiumPlan.anual;
+    final discounted = plan.months > 1;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -249,11 +263,12 @@ class _PlanCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(plan.title, style: text.titleMedium),
+                        Text(tr(plan.title), style: text.titleMedium),
                         Text(
-                          best
-                              ? 'Equivale a ${formatCLP(plan.monthlyEquivalent)} al mes'
-                              : plan.note,
+                          discounted
+                              ? tr('Equivale a {price} al mes',
+                                  {'price': formatCLP(plan.monthlyEquivalent)})
+                              : tr(plan.note),
                           style: text.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -265,7 +280,7 @@ class _PlanCard extends StatelessWidget {
                     children: [
                       Text(formatCLP(plan.price), style: text.titleLarge),
                       Text(
-                        plan.period,
+                        tr(plan.period),
                         style: text.bodySmall
                             ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
@@ -276,20 +291,20 @@ class _PlanCard extends StatelessWidget {
             ),
           ),
         ),
-        if (best)
+        if (discounted)
           Positioned(
             top: -10,
             left: 14,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: scheme.tertiary,
+                color: best ? scheme.tertiary : scheme.secondary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                plan.note,
+                tr(plan.note),
                 style: TextStyle(
-                  color: scheme.onTertiary,
+                  color: best ? scheme.onTertiary : scheme.onSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),

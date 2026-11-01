@@ -1,0 +1,21 @@
+STOCKPYME 1.5 — IDIOMAS, MONEDAS Y PLAN SEMESTRAL
+=================================================
+
+1. Copia todo el contenido de esta carpeta StockPyme dentro de tu proyecto
+   (C:\dev\stock_pyme\stock_pyme) y acepta "Reemplazar los archivos".
+
+   Este zip NO trae lib\firebase_options.dart ni pubspec.lock a propósito:
+   así se mantiene tu configuración de Firebase. No los borres.
+
+2. En la terminal de VS Code, dentro del proyecto:
+
+     flutter pub get
+     git add .
+     git commit -m "v1.5: idiomas, monedas y plan semestral"
+     git push
+
+3. GitHub Actions genera el APK y el programa de Windows solos.
+
+4. Servidor de pagos: actualiza también el repositorio Stockpyme-pagos con
+   el zip Stockpyme-pagos_semestral.zip (plan semestral de $26.990).
+   Hazlo ANTES de publicar esta versión de la app.

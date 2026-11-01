@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/i18n.dart';
 import '../utils/constants.dart';
+import '../utils/money.dart';
 
 /// Estado del plan de un usuario, visto por el administrador.
 enum AdminPlan {
@@ -9,8 +11,9 @@ enum AdminPlan {
   trial('En prueba'),
   expired('Prueba vencida');
 
-  const AdminPlan(this.label);
-  final String label;
+  const AdminPlan(this.spanishLabel);
+  final String spanishLabel;
+  String get label => tr(spanishLabel);
 
   bool get isPro => this == proMercadoPago || this == proManual;
 }
@@ -27,6 +30,7 @@ class AdminUser {
     required this.appVersion,
     required this.planCode,
     required this.mercadoPago,
+    this.currency = AppCurrency.clp,
     this.createdAt,
     this.lastSeen,
     this.trialStart,
@@ -49,6 +53,9 @@ class AdminUser {
   final String appVersion;
   final String planCode;
   final bool mercadoPago;
+
+  /// Moneda en que el negocio lleva sus montos.
+  final AppCurrency currency;
   final DateTime? createdAt;
   final DateTime? lastSeen;
   final DateTime? trialStart;
@@ -113,6 +120,7 @@ class AdminUser {
       appVersion: d['appVersion'] as String? ?? '',
       planCode: d['plan'] as String? ?? '',
       mercadoPago: d['mercadoPago'] as bool? ?? false,
+      currency: AppCurrency.fromCode(d['currency'] as String?),
       createdAt: _date(d['createdAt']),
       lastSeen: _date(d['lastSeen']),
       trialStart: _date(d['trialStart']),

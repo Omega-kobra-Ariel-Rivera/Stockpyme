@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/i18n.dart';
 import '../../models/admin_user.dart';
 import '../../services/admin_service.dart';
 import '../../utils/formatters.dart';
@@ -40,7 +41,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Panel de administración')),
+      appBar: AppBar(title: Text(tr('Panel de administración'))),
       body: StreamBuilder<List<AdminUser>>(
         stream: _users,
         builder: (context, snap) {
@@ -58,7 +59,10 @@ class _AdminScreenState extends State<AdminScreen> {
                   u.lastSeen != null &&
                   DateTime.now().difference(u.lastSeen!).inDays < 7)
               .length;
-          final sales30 = all.fold<int>(0, (s, u) => s + u.sales30d);
+          // Solo se suman negocios en pesos chilenos (no se mezclan monedas).
+          final sales30 = all
+              .where((u) => u.currency == AppCurrency.clp)
+              .fold<int>(0, (s, u) => s + u.sales30d);
           final products = all.fold<int>(0, (s, u) => s + u.products);
 
           final list = all
@@ -77,29 +81,29 @@ class _AdminScreenState extends State<AdminScreen> {
                 childAspectRatio: 2.3,
                 children: [
                   AdminMetric(
-                      label: 'Cuentas',
+                      label: tr('Cuentas'),
                       value: '${all.length}',
                       icon: Icons.people_outline),
                   AdminMetric(
-                      label: 'Activas 7 días',
+                      label: tr('Activas 7 días'),
                       value: '$active7d',
                       icon: Icons.bolt_outlined),
                   AdminMetric(
-                      label: 'Pro',
+                      label: tr('Pro'),
                       value: '$pro',
                       icon: Icons.workspace_premium_outlined,
                       color: scheme.primary),
                   AdminMetric(
-                      label: 'En prueba / vencidas',
+                      label: tr('En prueba / vencidas'),
                       value: '$trial / $expired',
                       icon: Icons.hourglass_bottom_outlined,
                       color: scheme.tertiary),
                   AdminMetric(
-                      label: 'Ventas 30 días (todos)',
+                      label: tr('Ventas 30 días (CLP)'),
                       value: formatCLP(sales30),
                       icon: Icons.payments_outlined),
                   AdminMetric(
-                      label: 'Productos (todos)',
+                      label: tr('Productos (todos)'),
                       value: '$products',
                       icon: Icons.inventory_2_outlined),
                 ],
@@ -110,7 +114,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
-                  hintText: 'Buscar negocio, nombre o correo',
+                  hintText: tr('Buscar negocio, nombre o correo'),
                   suffixIcon: _search.text.isEmpty
                       ? null
                       : IconButton(
@@ -124,10 +128,10 @@ class _AdminScreenState extends State<AdminScreen> {
                 spacing: 8,
                 children: [
                   for (final (f, label) in [
-                    (_Filter.all, 'Todas (${all.length})'),
-                    (_Filter.pro, 'Pro ($pro)'),
-                    (_Filter.trial, 'Prueba ($trial)'),
-                    (_Filter.expired, 'Vencidas ($expired)'),
+                    (_Filter.all, tr('Todas ({n})', {'n': all.length})),
+                    (_Filter.pro, tr('Pro ({n})', {'n': pro})),
+                    (_Filter.trial, tr('Prueba ({n})', {'n': trial})),
+                    (_Filter.expired, tr('Vencidas ({n})', {'n': expired})),
                   ])
                     ChoiceChip(
                       label: Text(label),
@@ -142,8 +146,8 @@ class _AdminScreenState extends State<AdminScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 40),
                   child: Text(
                     all.isEmpty
-                        ? 'Aún no hay cuentas registradas.'
-                        : 'Ninguna cuenta coincide con la búsqueda.',
+                        ? tr('Aún no hay cuentas registradas.')
+                        : tr('Ninguna cuenta coincide con la búsqueda.'),
                     textAlign: TextAlign.center,
                     style: text.bodyMedium
                         ?.copyWith(color: scheme.onSurfaceVariant),
@@ -204,7 +208,11 @@ class _UserTile extends StatelessWidget {
           Text(user.email, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Text(
-            '${user.products} productos · ${formatCLP(user.sales30d)} en 30 días · ${formatAgo(user.lastSeen)}',
+            tr('{n} productos · {amount} en 30 días · {ago}', {
+              'n': user.products,
+              'amount': user.currency.format(user.sales30d),
+              'ago': formatAgo(user.lastSeen),
+            }),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),

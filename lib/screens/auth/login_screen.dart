@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/i18n.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/language_button.dart';
 import '../../utils/constants.dart';
+import '../../utils/platform.dart';
 import '../../utils/theme.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/google_logo.dart';
@@ -81,19 +84,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Recuperar contraseña'),
+        title: Text(tr('Recuperar contraseña')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-                'Te enviaremos un enlace para crear una contraseña nueva.'),
+            Text(
+                tr('Te enviaremos un enlace para crear una contraseña nueva.')),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               autofocus: true,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo',
+              decoration: InputDecoration(
+                labelText: tr('Correo'),
                 prefixIcon: Icon(Icons.mail_outline),
               ),
             ),
@@ -102,12 +105,12 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(110, 44)),
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Enviar'),
+            child: Text(tr('Enviar')),
           ),
         ],
       ),
@@ -115,27 +118,29 @@ class _LoginScreenState extends State<LoginScreen> {
     controller.dispose();
     if (email == null || !mounted) return;
     if (!_emailPattern.hasMatch(email.trim())) {
-      setState(() => _error = 'Escribe un correo válido.');
+      setState(() => _error = tr('Escribe un correo válido.'));
       return;
     }
     await _run(() async {
       await context.read<AuthService>().sendPasswordReset(email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Te enviamos un correo a ${email.trim()}.')),
+        SnackBar(
+            content: Text(tr('Te enviamos un correo a {email}.',
+                {'email': email.trim()}))),
       );
     });
   }
 
   String? _validateEmail(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Escribe tu correo';
-    if (!_emailPattern.hasMatch(v.trim())) return 'Correo no válido';
+    if (v == null || v.trim().isEmpty) return tr('Escribe tu correo');
+    if (!_emailPattern.hasMatch(v.trim())) return tr('Correo no válido');
     return null;
   }
 
   String? _validatePassword(String? v) {
-    if (v == null || v.isEmpty) return 'Escribe tu contraseña';
-    if (_register && v.length < 6) return 'Mínimo 6 caracteres';
+    if (v == null || v.isEmpty) return tr('Escribe tu contraseña');
+    if (_register && v.length < 6) return tr('Mínimo 6 caracteres');
     return null;
   }
 
@@ -176,12 +181,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 SegmentedButton<bool>(
-                                  segments: const [
+                                  segments: [
                                     ButtonSegment(
-                                        value: false, label: Text('Ingresar')),
+                                        value: false, label: Text(tr('Ingresar'))),
                                     ButtonSegment(
                                         value: true,
-                                        label: Text('Crear cuenta')),
+                                        label: Text(tr('Crear cuenta'))),
                                   ],
                                   selected: {_register},
                                   showSelectedIcon: false,
@@ -192,15 +197,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 const SizedBox(height: 20),
                                 Text(
                                   _register
-                                      ? 'Crea tu cuenta gratis'
-                                      : 'Bienvenido de vuelta',
+                                      ? tr('Crea tu cuenta gratis')
+                                      : tr('Bienvenido de vuelta'),
                                   style: text.headlineSmall,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   _register
-                                      ? '${AppConstants.trialDays} días de prueba, sin tarjeta.'
-                                      : 'Ingresa para ver tu inventario y ventas.',
+                                      ? tr('{n} días de prueba, sin tarjeta.',
+                                          {'n': AppConstants.trialDays})
+                                      : tr('Ingresa para ver tu inventario y ventas.'),
                                   style: text.bodyMedium?.copyWith(
                                       color: scheme.onSurfaceVariant),
                                 ),
@@ -212,13 +218,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     textCapitalization:
                                         TextCapitalization.words,
                                     textInputAction: TextInputAction.next,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Tu nombre',
+                                    decoration: InputDecoration(
+                                      labelText: tr('Tu nombre'),
                                       prefixIcon: Icon(Icons.person_outline),
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
-                                            ? 'Escribe tu nombre'
+                                            ? tr('Escribe tu nombre')
                                             : null,
                                   ),
                                   const SizedBox(height: 12),
@@ -228,15 +234,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                     textCapitalization:
                                         TextCapitalization.words,
                                     textInputAction: TextInputAction.next,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Nombre del negocio',
-                                      hintText: 'Almacén Don Pedro',
+                                    decoration: InputDecoration(
+                                      labelText: tr('Nombre del negocio'),
+                                      hintText: tr('Almacén Don Pedro'),
                                       prefixIcon:
                                           Icon(Icons.storefront_outlined),
                                     ),
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
-                                            ? 'Escribe el nombre del negocio'
+                                            ? tr('Escribe el nombre del negocio')
                                             : null,
                                   ),
                                   const SizedBox(height: 12),
@@ -248,8 +254,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   autocorrect: false,
                                   textInputAction: TextInputAction.next,
                                   autofillHints: const [AutofillHints.email],
-                                  decoration: const InputDecoration(
-                                    labelText: 'Correo',
+                                  decoration: InputDecoration(
+                                    labelText: tr('Correo'),
                                     hintText: 'nombre@correo.cl',
                                     prefixIcon: Icon(Icons.mail_outline),
                                   ),
@@ -271,12 +277,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onFieldSubmitted:
                                       _register ? null : (_) => _submit(),
                                   decoration: InputDecoration(
-                                    labelText: 'Contraseña',
+                                    labelText: tr('Contraseña'),
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     suffixIcon: IconButton(
                                       tooltip: _hidePassword
-                                          ? 'Mostrar contraseña'
-                                          : 'Ocultar contraseña',
+                                          ? tr('Mostrar contraseña')
+                                          : tr('Ocultar contraseña'),
                                       icon: Icon(_hidePassword
                                           ? Icons.visibility_outlined
                                           : Icons.visibility_off_outlined),
@@ -294,12 +300,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     obscureText: _hidePassword,
                                     textInputAction: TextInputAction.done,
                                     onFieldSubmitted: (_) => _submit(),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Repite la contraseña',
+                                    decoration: InputDecoration(
+                                      labelText: tr('Repite la contraseña'),
                                       prefixIcon: Icon(Icons.lock_outline),
                                     ),
                                     validator: (v) => v != _password.text
-                                        ? 'Las contraseñas no coinciden'
+                                        ? tr('Las contraseñas no coinciden')
                                         : null,
                                   ),
                                 ],
@@ -308,8 +314,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     alignment: Alignment.centerRight,
                                     child: TextButton(
                                       onPressed: _busy ? null : _forgotPassword,
-                                      child: const Text(
-                                          '¿Olvidaste tu contraseña?'),
+                                      child: Text(
+                                          tr('¿Olvidaste tu contraseña?')),
                                     ),
                                   )
                                 else
@@ -328,9 +334,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                               strokeWidth: 2.5),
                                         )
                                       : Text(_register
-                                          ? 'Crear cuenta'
-                                          : 'Ingresar'),
+                                          ? tr('Crear cuenta')
+                                          : tr('Ingresar')),
                                 ),
+                                if (AppPlatform.hasGoogleSignIn) ...[
                                 const SizedBox(height: 20),
                                 Row(
                                   children: [
@@ -339,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12),
                                       child: Text(
-                                        'o continúa con',
+                                        tr('o continúa con'),
                                         style: text.bodySmall?.copyWith(
                                             color: scheme.onSurfaceVariant),
                                       ),
@@ -356,13 +363,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                         color: scheme.outlineVariant),
                                     foregroundColor: scheme.onSurface,
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       GoogleLogo(size: 20),
                                       SizedBox(width: 12),
                                       Text(
-                                        'Continuar con Google',
+                                        tr('Continuar con Google'),
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
@@ -371,11 +378,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ],
                                   ),
                                 ),
+                                ],
                                 const SizedBox(height: 20),
                                 Text(
                                   _register
-                                      ? 'Al crear la cuenta aceptas que tus datos se respalden de forma segura en la nube para que puedas recuperarlos.'
-                                      : '¿No tienes cuenta? Toca "Crear cuenta" arriba.',
+                                      ? tr('Al crear la cuenta aceptas que tus datos se respalden de forma segura en la nube para que puedas recuperarlos.')
+                                      : tr('¿No tienes cuenta? Toca "Crear cuenta" arriba.'),
                                   textAlign: TextAlign.center,
                                   style: text.bodySmall?.copyWith(
                                       color: scheme.onSurfaceVariant),
@@ -407,13 +415,17 @@ class _BrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(24, 32, 24, 28),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 28),
       child: Column(
         children: [
-          AppLogo(size: 76),
-          SizedBox(height: 14),
-          Text(
+          const Align(
+            alignment: Alignment.centerRight,
+            child: LanguageButton(color: Colors.white),
+          ),
+          const AppLogo(size: 76),
+          const SizedBox(height: 14),
+          const Text(
             AppConstants.appName,
             style: TextStyle(
               color: Colors.white,
@@ -422,11 +434,11 @@ class _BrandHeader extends StatelessWidget {
               letterSpacing: 0.3,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            AppConstants.tagline,
+            tr(AppConstants.tagline),
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.onBrandMuted, fontSize: 14),
+            style: const TextStyle(color: AppTheme.onBrandMuted, fontSize: 14),
           ),
         ],
       ),

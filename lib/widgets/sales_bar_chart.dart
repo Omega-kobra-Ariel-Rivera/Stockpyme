@@ -39,7 +39,7 @@ class SalesBarChart extends StatelessWidget {
                     children: [
                       Tooltip(
                         message:
-                            '${formatDate(data[i].day)}: ${formatCLP(data[i].total)}',
+                            '${formatDate(data[i].day)}: ${formatMoney(data[i].total)}',
                         child: Container(
                           height: maxValue == 0
                               ? 3

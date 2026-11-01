@@ -1,4 +1,8 @@
-/// Formato de moneda chilena: $12.345
+import '../l10n/i18n.dart';
+
+export 'money.dart';
+
+/// Pesos chilenos: $12.345 (precio de los planes Pro, que se cobran en Chile).
 String formatCLP(num value) {
   final rounded = value.round();
   final negative = rounded < 0;
@@ -49,17 +53,23 @@ int? parseCLP(String text) {
 DateTime startOfDay(DateTime date) =>
     DateTime(date.year, date.month, date.day);
 
-const List<String> weekdayInitials = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+/// Inicial de cada día (lunes = índice 0).
+List<String> get weekdayInitials => tr('L,M,X,J,V,S,D').split(',');
+
+/// Nombre visible de una unidad guardada en español ('unidad', 'kg'...).
+String unitLabel(String unit) => tr(unit);
 
 /// "hace 5 min", "hace 3 h", "hace 2 días" o la fecha si es más antiguo.
 String formatAgo(DateTime? date) {
-  if (date == null) return 'sin datos';
+  if (date == null) return tr('sin datos');
   final diff = DateTime.now().difference(date);
-  if (diff.inMinutes < 1) return 'recién';
-  if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
-  if (diff.inHours < 24) return 'hace ${diff.inHours} h';
+  if (diff.inMinutes < 1) return tr('recién');
+  if (diff.inMinutes < 60) return tr('hace {n} min', {'n': diff.inMinutes});
+  if (diff.inHours < 24) return tr('hace {n} h', {'n': diff.inHours});
   if (diff.inDays < 30) {
-    return diff.inDays == 1 ? 'hace 1 día' : 'hace ${diff.inDays} días';
+    return diff.inDays == 1
+        ? tr('hace 1 día')
+        : tr('hace {n} días', {'n': diff.inDays});
   }
   return formatDate(date);
 }

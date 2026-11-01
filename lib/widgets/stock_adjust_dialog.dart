@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../models/stock_movement.dart';
 import '../services/inventory_service.dart';
@@ -49,10 +50,10 @@ class _StockAdjustDialogState extends State<_StockAdjustDialog> {
   Future<void> _save() async {
     final qty = parseQty(_quantity.text);
     if (qty == null || qty <= 0) {
-      setState(() => _error = 'Ingresa una cantidad válida.');
+      setState(() => _error = tr('Ingresa una cantidad válida.'));
       return;
     }
-    final newCost = _cost.text.trim().isEmpty ? null : parseCLP(_cost.text);
+    final newCost = _cost.text.trim().isEmpty ? null : parseMoney(_cost.text);
     setState(() {
       _saving = true;
       _error = null;
@@ -79,14 +80,14 @@ class _StockAdjustDialogState extends State<_StockAdjustDialog> {
   Widget build(BuildContext context) {
     final p = widget.product;
     return AlertDialog(
-      title: Text(_isEntry ? 'Entrada de stock' : 'Salida / merma'),
+      title: Text(_isEntry ? tr('Entrada de stock') : tr('Salida / merma')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(p.name, style: Theme.of(context).textTheme.titleSmall),
-            Text('Stock actual: ${formatQty(p.stock)} ${p.unit}'),
+            Text(tr('Stock actual: {qty}', {'qty': '${formatQty(p.stock)} ${unitLabel(p.unit)}'})),
             const SizedBox(height: 16),
             TextField(
               controller: _quantity,
@@ -94,7 +95,7 @@ class _StockAdjustDialogState extends State<_StockAdjustDialog> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: 'Cantidad (${p.unit})',
+                labelText: tr('Cantidad ({unit})', {'unit': unitLabel(p.unit)}),
                 errorText: _error,
               ),
               onSubmitted: (_) => _save(),
@@ -103,10 +104,12 @@ class _StockAdjustDialogState extends State<_StockAdjustDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _cost,
-                keyboardType: TextInputType.number,
+                keyboardType: Money.currency.decimals > 0
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: 'Nuevo costo unitario (opcional)',
-                  hintText: 'Actual: ${formatCLP(p.costPrice)}',
+                  labelText: tr('Nuevo costo unitario (opcional)'),
+                  hintText: tr('Actual: {price}', {'price': formatMoney(p.costPrice)}),
                 ),
               ),
             ],
@@ -114,8 +117,8 @@ class _StockAdjustDialogState extends State<_StockAdjustDialog> {
             TextField(
               controller: _note,
               decoration: InputDecoration(
-                labelText: 'Nota (opcional)',
-                hintText: _isEntry ? 'Ej: compra a proveedor' : 'Ej: vencido',
+                labelText: tr('Nota (opcional)'),
+                hintText: _isEntry ? tr('Ej: compra a proveedor') : tr('Ej: vencido'),
               ),
             ),
           ],
@@ -124,12 +127,12 @@ class _StockAdjustDialogState extends State<_StockAdjustDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
+          child: Text(tr('Cancelar')),
         ),
         FilledButton(
           style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
           onPressed: _saving ? null : _save,
-          child: const Text('Guardar'),
+          child: Text(tr('Guardar')),
         ),
       ],
     );

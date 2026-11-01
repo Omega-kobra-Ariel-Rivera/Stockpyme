@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../services/inventory_service.dart';
 import '../utils/access_guard.dart';
 import '../utils/formatters.dart';
@@ -22,7 +23,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     await Clipboard.setData(ClipboardData(text: csv));
     if (!mounted) return;
     showMessage(context,
-        '$what copiado. Pégalo en Excel o Google Sheets (separador ";").');
+        tr('{what} copiado. Pégalo en Excel o Google Sheets (separador ";").',
+            {'what': what}));
   }
 
   @override
@@ -41,26 +43,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reportes'),
+        title: Text(tr('Reportes')),
         actions: [
           PopupMenuButton<String>(
-            tooltip: 'Exportar',
+            tooltip: tr('Exportar'),
             icon: const Icon(Icons.ios_share),
             onSelected: (value) {
               if (value == 'sales') {
-                _copy(inv.exportSalesCsv(_days), 'Reporte de ventas');
+                _copy(inv.exportSalesCsv(_days), tr('Reporte de ventas'));
               } else {
-                _copy(inv.exportProductsCsv(), 'Inventario');
+                _copy(inv.exportProductsCsv(), tr('Inventario'));
               }
             },
             itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'sales',
-                child: Text('Copiar ventas de $_days días (CSV)'),
+                child: Text(tr('Copiar ventas de {n} días (CSV)', {'n': _days})),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'products',
-                child: Text('Copiar inventario (CSV)'),
+                child: Text(tr('Copiar inventario (CSV)')),
               ),
             ],
           ),
@@ -70,10 +72,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 1, label: Text('Hoy')),
-              ButtonSegment(value: 7, label: Text('7 días')),
-              ButtonSegment(value: 30, label: Text('30 días')),
+            segments: [
+              ButtonSegment(value: 1, label: Text(tr('Hoy'))),
+              ButtonSegment(value: 7, label: Text(tr('7 días'))),
+              ButtonSegment(value: 30, label: Text(tr('30 días'))),
             ],
             selected: {_days},
             onSelectionChanged: (s) => setState(() => _days = s.first),
@@ -89,20 +91,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               StatCard(
                   icon: Icons.payments_outlined,
-                  label: 'Ventas',
-                  value: formatCLP(total)),
+                  label: tr('Ventas'),
+                  value: formatMoney(total)),
               StatCard(
                   icon: Icons.trending_up,
-                  label: 'Ganancia',
-                  value: formatCLP(profit)),
+                  label: tr('Ganancia'),
+                  value: formatMoney(profit)),
               StatCard(
                   icon: Icons.receipt_long_outlined,
-                  label: 'N° de ventas',
+                  label: tr('N° de ventas'),
                   value: '${sales.length}'),
               StatCard(
                   icon: Icons.shopping_basket_outlined,
-                  label: 'Ticket promedio',
-                  value: formatCLP(average)),
+                  label: tr('Ticket promedio'),
+                  value: formatMoney(average)),
             ],
           ),
           if (_days > 1) ...[
@@ -113,7 +115,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Ventas por día', style: text.titleMedium),
+                    Text(tr('Ventas por día'), style: text.titleMedium),
                     const SizedBox(height: 16),
                     SizedBox(height: 170, child: SalesBarChart(data: daily)),
                   ],
@@ -122,11 +124,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          Text('Más vendidos', style: text.titleMedium),
+          Text(tr('Más vendidos'), style: text.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: top.isEmpty
-                ? const ListTile(title: Text('Sin ventas en este periodo.'))
+                ? ListTile(title: Text(tr('Sin ventas en este periodo.')))
                 : Column(
                     children: [
                       for (var i = 0; i < top.length; i++)
@@ -139,8 +141,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           ),
                           title: Text(top[i].name,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
-                          subtitle: Text('${formatQty(top[i].quantity)} vendidos'),
-                          trailing: Text(formatCLP(top[i].total),
+                          subtitle: Text(tr('{qty} vendidos',
+                              {'qty': formatQty(top[i].quantity)})),
+                          trailing: Text(formatMoney(top[i].total),
                               style:
                                   const TextStyle(fontWeight: FontWeight.w700)),
                         ),
@@ -149,7 +152,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           if (byPayment.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Text('Por medio de pago', style: text.titleMedium),
+            Text(tr('Por medio de pago'), style: text.titleMedium),
             const SizedBox(height: 8),
             Card(
               child: Column(
@@ -158,7 +161,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ListTile(
                       dense: true,
                       title: Text(entry.key.label),
-                      trailing: Text(formatCLP(entry.value),
+                      trailing: Text(formatMoney(entry.value),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                 ],
@@ -166,10 +169,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          Text('Detalle de ventas', style: text.titleMedium),
+          Text(tr('Detalle de ventas'), style: text.titleMedium),
           const SizedBox(height: 8),
           if (sales.isEmpty)
-            const Card(child: ListTile(title: Text('Sin ventas en este periodo.')))
+            Card(child: ListTile(title: Text(tr('Sin ventas en este periodo.'))))
           else
             Card(
               clipBehavior: Clip.antiAlias,
@@ -179,7 +182,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ExpansionTile(
                       shape: const Border(),
                       title: Text(
-                          'N° ${sale.number} · ${formatCLP(sale.total)}',
+                          '${tr('N°')} ${sale.number} · ${formatMoney(sale.total)}',
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
                           '${formatDateTime(sale.date)} · ${sale.paymentMethod.label}'),
@@ -189,8 +192,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             dense: true,
                             title: Text(item.name),
                             subtitle: Text(
-                                '${formatQty(item.quantity)} × ${formatCLP(item.unitPrice)}'),
-                            trailing: Text(formatCLP(item.subtotal)),
+                                '${formatQty(item.quantity)} × ${formatMoney(item.unitPrice)}'),
+                            trailing: Text(formatMoney(item.subtotal)),
                           ),
                       ],
                     ),

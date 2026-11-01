@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/i18n.dart';
 import '../utils/constants.dart';
 
 /// Logo de StockPyme. [withBackground] usa el ícono completo con fondo.
@@ -64,7 +65,7 @@ class MadeByRivera extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Hecho por',
+              tr('Hecho por'),
               style: TextStyle(fontSize: 11, color: muted, letterSpacing: 0.3),
             ),
             Text(

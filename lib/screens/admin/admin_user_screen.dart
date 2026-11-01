@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/i18n.dart';
 import '../../models/admin_user.dart';
 import '../../models/product.dart';
 import '../../models/sale.dart';
@@ -31,19 +32,21 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(grant ? 'Activar Pro' : 'Quitar Pro manual'),
+        title: Text(grant ? tr('Activar Pro') : tr('Quitar Pro manual')),
         content: Text(grant
-            ? '¿Dar $days días de Pro a ${user.displayName}? Úsalo cuando te pague por fuera de la app (efectivo, transferencia) o para regalar días.'
-            : '¿Quitar el Pro manual de ${user.displayName}? Si paga con Mercado Pago, esa suscripción sigue activa.'),
+            ? tr('¿Dar {days} días de Pro a {name}? Úsalo cuando te pague por fuera de la app (efectivo, transferencia) o para regalar días.',
+                {'days': days, 'name': user.displayName})
+            : tr('¿Quitar el Pro manual de {name}? Si paga con Mercado Pago, esa suscripción sigue activa.',
+                {'name': user.displayName})),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('Cancelar')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(110, 44)),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(grant ? 'Activar' : 'Quitar'),
+            child: Text(grant ? tr('Activar') : tr('Quitar')),
           ),
         ],
       ),
@@ -58,11 +61,13 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(grant ? 'Pro activado' : 'Pro manual quitado')));
+          content: Text(grant ? tr('Pro activado') : tr('Pro manual quitado'))));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudo cambiar el plan: $e')));
+          SnackBar(
+              content: Text(tr('No se pudo cambiar el plan: {error}',
+                  {'error': e}))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -81,11 +86,11 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
             appBar: AppBar(
               title: Text(user.displayName,
                   maxLines: 1, overflow: TextOverflow.ellipsis),
-              bottom: const TabBar(
+              bottom: TabBar(
                 tabs: [
-                  Tab(text: 'Resumen'),
-                  Tab(text: 'Inventario'),
-                  Tab(text: 'Ventas'),
+                  Tab(text: tr('Resumen')),
+                  Tab(text: tr('Inventario')),
+                  Tab(text: tr('Ventas')),
                 ],
               ),
             ),
@@ -97,8 +102,8 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
                   onGrant: (days) => _changePlan(user, days: days),
                   onRevoke: () => _changePlan(user),
                 ),
-                _InventoryTab(stream: _products),
-                _SalesTab(stream: _sales),
+                _InventoryTab(stream: _products, currency: user.currency),
+                _SalesTab(stream: _sales, currency: user.currency),
               ],
             ),
           );
@@ -131,12 +136,13 @@ class _SummaryTab extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     final String planDetail = switch (user.plan) {
-      AdminPlan.proMercadoPago => 'Suscripción activa en Mercado Pago.',
+      AdminPlan.proMercadoPago => tr('Suscripción activa en Mercado Pago.'),
       AdminPlan.proManual =>
-        'Activado a mano hasta el ${formatDate(user.manualProUntil!)}.',
+        tr('Activado a mano hasta el {date}.',
+            {'date': formatDate(user.manualProUntil!)}),
       AdminPlan.trial =>
-        'Le quedan ${user.trialDaysLeft} días de prueba gratis.',
-      AdminPlan.expired => 'La prueba terminó y no tiene suscripción.',
+        tr('Le quedan {n} días de prueba gratis.', {'n': user.trialDaysLeft}),
+      AdminPlan.expired => tr('La prueba terminó y no tiene suscripción.'),
     };
 
     return ListView(
@@ -159,18 +165,27 @@ class _SummaryTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 _Info(Icons.person_outline,
-                    user.name.isEmpty ? 'Sin nombre' : user.name),
+                    user.name.isEmpty ? tr('Sin nombre') : user.name),
                 _Info(Icons.mail_outline, user.email),
                 _Info(
                   Icons.login,
                   user.provider == 'google.com'
-                      ? 'Entra con Google'
-                      : 'Entra con correo y contraseña',
+                      ? tr('Entra con Google')
+                      : tr('Entra con correo y contraseña'),
                 ),
                 _Info(Icons.event_outlined,
-                    'Registro: ${user.createdAt == null ? 'sin datos' : formatDate(user.createdAt!)}'),
+                    tr('Registro: {date}', {
+                      'date': user.createdAt == null
+                          ? tr('sin datos')
+                          : formatDate(user.createdAt!),
+                    })),
                 _Info(Icons.access_time,
-                    'Última conexión: ${formatAgo(user.lastSeen)}'),
+                    tr('Última conexión: {ago}', {'ago': formatAgo(user.lastSeen)})),
+                _Info(Icons.payments_outlined,
+                    tr('Moneda: {name} ({code})', {
+                      'name': tr(user.currency.label),
+                      'code': user.currency.code,
+                    })),
                 if (user.appVersion.isNotEmpty)
                   _Info(Icons.phone_android,
                       'StockPyme ${user.appVersion} · ${user.platform}'),
@@ -188,28 +203,28 @@ class _SummaryTab extends StatelessWidget {
           childAspectRatio: 2.3,
           children: [
             AdminMetric(
-                label: 'Productos',
+                label: tr('Productos'),
                 value: '${user.products}',
                 icon: Icons.inventory_2_outlined),
             AdminMetric(
-                label: 'Stock bajo',
+                label: tr('Stock bajo'),
                 value: '${user.lowStock}',
                 icon: Icons.warning_amber_rounded,
                 color: user.lowStock > 0 ? scheme.error : null),
             AdminMetric(
-                label: 'Valor inventario',
-                value: formatCLP(user.inventoryValue),
+                label: tr('Valor inventario'),
+                value: user.currency.format(user.inventoryValue),
                 icon: Icons.warehouse_outlined),
             AdminMetric(
-                label: 'Ventas hoy',
-                value: formatCLP(user.salesToday),
+                label: tr('Ventas hoy'),
+                value: user.currency.format(user.salesToday),
                 icon: Icons.today_outlined),
             AdminMetric(
-                label: 'Ventas 30 días',
-                value: formatCLP(user.sales30d),
+                label: tr('Ventas 30 días'),
+                value: user.currency.format(user.sales30d),
                 icon: Icons.payments_outlined),
             AdminMetric(
-                label: 'N° ventas 30 días',
+                label: tr('N° ventas 30 días'),
                 value: '${user.salesCount30d}',
                 icon: Icons.receipt_long_outlined),
           ],
@@ -221,7 +236,7 @@ class _SummaryTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Plan', style: text.titleMedium),
+                Text(tr('Plan'), style: text.titleMedium),
                 const SizedBox(height: 4),
                 Text(planDetail,
                     style: text.bodyMedium
@@ -234,12 +249,17 @@ class _SummaryTab extends StatelessWidget {
                     FilledButton.tonalIcon(
                       onPressed: busy ? null : () => onGrant(30),
                       icon: const Icon(Icons.add),
-                      label: const Text('Pro 30 días'),
+                      label: Text(tr('Pro 30 días')),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: busy ? null : () => onGrant(182),
+                      icon: const Icon(Icons.add),
+                      label: Text(tr('Pro 6 meses')),
                     ),
                     FilledButton.tonalIcon(
                       onPressed: busy ? null : () => onGrant(365),
                       icon: const Icon(Icons.add),
-                      label: const Text('Pro 1 año'),
+                      label: Text(tr('Pro 1 año')),
                     ),
                     if (user.manualProActive)
                       OutlinedButton.icon(
@@ -249,7 +269,7 @@ class _SummaryTab extends StatelessWidget {
                         ),
                         onPressed: busy ? null : onRevoke,
                         icon: const Icon(Icons.remove_circle_outline),
-                        label: const Text('Quitar Pro manual'),
+                        label: Text(tr('Quitar Pro manual')),
                       ),
                   ],
                 ),
@@ -289,9 +309,10 @@ class _Info extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _InventoryTab extends StatelessWidget {
-  const _InventoryTab({required this.stream});
+  const _InventoryTab({required this.stream, required this.currency});
 
   final Stream<List<Product>> stream;
+  final AppCurrency currency;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +328,7 @@ class _InventoryTab extends StatelessWidget {
         }
         final products = snap.data!;
         if (products.isEmpty) {
-          return const Center(child: Text('Este negocio aún no tiene productos.'));
+          return Center(child: Text(tr('Este negocio aún no tiene productos.')));
         }
         final value = products.fold<int>(
             0, (s, p) => s + (p.costPrice * (p.stock < 0 ? 0 : p.stock)).round());
@@ -317,7 +338,11 @@ class _InventoryTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             Text(
-              '${products.length} productos · $low con stock bajo · valor ${formatCLP(value)}',
+              tr('{n} productos · {low} con stock bajo · valor {value}', {
+                'n': products.length,
+                'low': low,
+                'value': currency.format(value),
+              }),
               style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 10),
@@ -326,7 +351,7 @@ class _InventoryTab extends StatelessWidget {
                 children: [
                   for (var i = 0; i < products.length; i++) ...[
                     if (i > 0) const Divider(height: 1),
-                    _ProductRow(product: products[i]),
+                    _ProductRow(product: products[i], currency: currency),
                   ],
                 ],
               ),
@@ -339,9 +364,10 @@ class _InventoryTab extends StatelessWidget {
 }
 
 class _ProductRow extends StatelessWidget {
-  const _ProductRow({required this.product});
+  const _ProductRow({required this.product, required this.currency});
 
   final Product product;
+  final AppCurrency currency;
 
   @override
   Widget build(BuildContext context) {
@@ -363,8 +389,8 @@ class _ProductRow extends StatelessWidget {
                 Text(
                   [
                     if (p.category.isNotEmpty) p.category,
-                    'costo ${formatCLP(p.costPrice)}',
-                    'margen ${formatPercent(p.marginPercent)}',
+                    tr('costo {price}', {'price': currency.format(p.costPrice)}),
+                    tr('margen {pct}', {'pct': formatPercent(p.marginPercent)}),
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -378,11 +404,11 @@ class _ProductRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(formatCLP(p.salePrice),
+              Text(currency.format(p.salePrice),
                   style: text.titleSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               Text(
-                '${formatQty(p.stock)} ${p.unit}',
+                '${formatQty(p.stock)} ${unitLabel(p.unit)}',
                 style: text.bodySmall?.copyWith(
                   color: p.isLowStock ? scheme.error : scheme.onSurfaceVariant,
                   fontWeight: p.isLowStock ? FontWeight.w700 : null,
@@ -401,9 +427,10 @@ class _ProductRow extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _SalesTab extends StatelessWidget {
-  const _SalesTab({required this.stream});
+  const _SalesTab({required this.stream, required this.currency});
 
   final Stream<List<Sale>> stream;
+  final AppCurrency currency;
 
   @override
   Widget build(BuildContext context) {
@@ -419,14 +446,17 @@ class _SalesTab extends StatelessWidget {
         }
         final sales = snap.data!;
         if (sales.isEmpty) {
-          return const Center(child: Text('Este negocio aún no tiene ventas.'));
+          return Center(child: Text(tr('Este negocio aún no tiene ventas.')));
         }
         final total = sales.fold<int>(0, (s, x) => s + x.total);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             Text(
-              'Últimas ${sales.length} ventas · ${formatCLP(total)}',
+              tr('Últimas {n} ventas · {total}', {
+                'n': sales.length,
+                'total': currency.format(total),
+              }),
               style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 10),
@@ -436,7 +466,7 @@ class _SalesTab extends StatelessWidget {
                   for (final sale in sales)
                     ExpansionTile(
                       shape: const Border(),
-                      title: Text('N° ${sale.number} · ${formatCLP(sale.total)}',
+                      title: Text('${tr('N°')} ${sale.number} · ${currency.format(sale.total)}',
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: Text(
                           '${formatDateTime(sale.date)} · ${sale.paymentMethod.label}'),
@@ -446,8 +476,8 @@ class _SalesTab extends StatelessWidget {
                             dense: true,
                             title: Text(item.name),
                             subtitle: Text(
-                                '${formatQty(item.quantity)} × ${formatCLP(item.unitPrice)}'),
-                            trailing: Text(formatCLP(item.subtotal)),
+                                '${formatQty(item.quantity)} × ${currency.format(item.unitPrice)}'),
+                            trailing: Text(currency.format(item.subtotal)),
                           ),
                       ],
                     ),

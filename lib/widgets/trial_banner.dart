@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../screens/paywall_screen.dart';
 import '../services/subscription_service.dart';
 
@@ -41,8 +42,10 @@ class TrialBanner extends StatelessWidget {
                 Expanded(
                   child: Text(
                     expired
-                        ? 'Tu prueba gratis terminó. Suscríbete para seguir vendiendo.'
-                        : 'Prueba gratis: te ${days == 1 ? 'queda 1 día' : 'quedan $days días'}.',
+                        ? tr('Tu prueba gratis terminó. Suscríbete para seguir vendiendo.')
+                        : days == 1
+                            ? tr('Prueba gratis: te queda 1 día.')
+                            : tr('Prueba gratis: te quedan {n} días.', {'n': days}),
                     style: TextStyle(
                       color: expired
                           ? scheme.onErrorContainer

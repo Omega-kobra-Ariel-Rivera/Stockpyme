@@ -1,0 +1,10 @@
+# Ícono del programa de Windows (lo usa el workflow build-windows.yml):
+#   dart run flutter_launcher_icons -f flutter_launcher_icons_windows.yaml
+flutter_launcher_icons:
+  android: false
+  ios: false
+  image_path: "assets/branding/icon.png"
+  windows:
+    generate: true
+    image_path: "assets/branding/icon.png"
+    icon_size: 256

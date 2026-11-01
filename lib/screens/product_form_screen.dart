@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../models/product.dart';
 import '../services/inventory_service.dart';
 import '../utils/access_guard.dart';
@@ -30,6 +31,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _stock;
   late final TextEditingController _minStock;
   late String _unit;
+
+  static TextInputType get _moneyKeyboard => Money.currency.decimals > 0
+      ? const TextInputType.numberWithOptions(decimal: true)
+      : TextInputType.number;
+
+  static String get _moneyPrefix => '${Money.currency.symbol.trim()} ';
   bool _saving = false;
 
   bool get _isEditing => widget.product != null;
@@ -42,8 +49,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _barcode =
         TextEditingController(text: p?.barcode ?? widget.initialBarcode ?? '');
     _category = TextEditingController(text: p?.category ?? '');
-    _cost = TextEditingController(text: p == null ? '' : '${p.costPrice}');
-    _price = TextEditingController(text: p == null ? '' : '${p.salePrice}');
+    _cost = TextEditingController(text: p == null ? '' : moneyInput(p.costPrice));
+    _price =
+        TextEditingController(text: p == null ? '' : moneyInput(p.salePrice));
     _stock = TextEditingController(text: p == null ? '' : formatQty(p.stock));
     _minStock =
         TextEditingController(text: p == null ? '' : formatQty(p.minStock));
@@ -60,9 +68,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 
   Future<void> _scan() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const ScannerScreen()),
-    );
+    final code = await scanBarcode(context);
     if (code != null && mounted) setState(() => _barcode.text = code);
   }
 
@@ -76,8 +82,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       barcode: _barcode.text.trim(),
       category: _category.text.trim(),
       unit: _unit,
-      costPrice: parseCLP(_cost.text) ?? 0,
-      salePrice: parseCLP(_price.text) ?? 0,
+      costPrice: parseMoney(_cost.text) ?? 0,
+      salePrice: parseMoney(_price.text) ?? 0,
       stock: parseQty(_stock.text) ?? 0,
       minStock: parseQty(_minStock.text) ?? 0,
     );
@@ -88,7 +94,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         await inv.addProduct(product);
       }
       if (!mounted) return;
-      showMessage(context, _isEditing ? 'Producto actualizado' : 'Producto creado');
+      showMessage(context, _isEditing ? tr('Producto actualizado') : tr('Producto creado'));
       Navigator.of(context).pop();
     } on InventoryException catch (e) {
       if (!mounted) return;
@@ -98,27 +104,27 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 
   String? _required(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null;
+      (v == null || v.trim().isEmpty) ? tr('Campo obligatorio') : null;
 
   String? _validQty(String? v) {
     if (v == null || v.trim().isEmpty) return null;
     final q = parseQty(v);
-    return (q == null || q < 0) ? 'Número no válido' : null;
+    return (q == null || q < 0) ? tr('Número no válido') : null;
   }
 
   @override
   Widget build(BuildContext context) {
     final inv = context.watch<InventoryService>();
     final scheme = Theme.of(context).colorScheme;
-    final cost = parseCLP(_cost.text) ?? 0;
-    final price = parseCLP(_price.text) ?? 0;
+    final cost = parseMoney(_cost.text) ?? 0;
+    final price = parseMoney(_price.text) ?? 0;
     final margin = price - cost;
     final marginPct = price == 0 ? 0.0 : margin / price * 100;
     final categories = inv.categories;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Editar producto' : 'Nuevo producto'),
+        title: Text(_isEditing ? tr('Editar producto') : tr('Nuevo producto')),
       ),
       body: Form(
         key: _formKey,
@@ -128,7 +134,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Nombre *'),
+              decoration: InputDecoration(labelText: tr('Nombre *')),
               validator: _required,
             ),
             const SizedBox(height: 12),
@@ -136,24 +142,24 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               controller: _barcode,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: 'Código de barras',
+                labelText: tr('Código de barras'),
                 suffixIcon: IconButton(
-                  tooltip: 'Escanear',
+                  tooltip: tr('Escanear'),
                   icon: const Icon(Icons.qr_code_scanner),
                   onPressed: _scan,
                 ),
               ),
               validator: (v) =>
                   inv.isBarcodeTaken(v ?? '', exceptId: widget.product?.id)
-                      ? 'Este código ya está en uso'
+                      ? tr('Este código ya está en uso')
                       : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _category,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                  labelText: 'Categoría', hintText: 'Ej: Bebidas, Abarrotes'),
+              decoration: InputDecoration(
+                  labelText: tr('Categoría'), hintText: tr('Ej: Bebidas, Abarrotes')),
             ),
             if (categories.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -172,10 +178,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _unit,
-              decoration: const InputDecoration(labelText: 'Unidad de venta'),
+              decoration: InputDecoration(labelText: tr('Unidad de venta')),
               items: [
                 for (final u in AppConstants.units)
-                  DropdownMenuItem(value: u, child: Text(u)),
+                  DropdownMenuItem(value: u, child: Text(unitLabel(u))),
               ],
               onChanged: (v) => setState(() => _unit = v ?? _unit),
             ),
@@ -185,22 +191,23 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _cost,
-                    keyboardType: TextInputType.number,
+                    keyboardType: _moneyKeyboard,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                        labelText: 'Costo', prefixText: r'$ '),
+                    decoration: InputDecoration(
+                        labelText: tr('Costo'), prefixText: _moneyPrefix),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _price,
-                    keyboardType: TextInputType.number,
+                    keyboardType: _moneyKeyboard,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                        labelText: 'Precio venta *', prefixText: r'$ '),
-                    validator: (v) => (parseCLP(v ?? '') ?? 0) <= 0
-                        ? 'Ingresa un precio'
+                    decoration: InputDecoration(
+                        labelText: tr('Precio venta *'),
+                        prefixText: _moneyPrefix),
+                    validator: (v) => (parseMoney(v ?? '') ?? 0) <= 0
+                        ? tr('Ingresa un precio')
                         : null,
                   ),
                 ),
@@ -210,7 +217,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8, left: 4),
                 child: Text(
-                  'Ganancia por ${_unit == 'unidad' ? 'unidad' : _unit}: ${formatCLP(margin)} (${formatPercent(marginPct)})',
+                  tr('Ganancia por {unit}: {amount} ({pct})', {
+                    'unit': unitLabel(_unit),
+                    'amount': formatMoney(margin),
+                    'pct': formatPercent(marginPct),
+                  }),
                   style: TextStyle(
                     color: margin < 0 ? scheme.error : scheme.primary,
                     fontWeight: FontWeight.w600,
@@ -226,7 +237,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                        labelText: _isEditing ? 'Stock actual' : 'Stock inicial'),
+                        labelText: _isEditing ? tr('Stock actual') : tr('Stock inicial')),
                     validator: _validQty,
                   ),
                 ),
@@ -237,7 +248,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration:
-                        const InputDecoration(labelText: 'Stock mínimo'),
+                        InputDecoration(labelText: tr('Stock mínimo')),
                     validator: _validQty,
                   ),
                 ),
@@ -246,14 +257,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 4),
               child: Text(
-                'Te avisaremos cuando el stock llegue al mínimo.',
+                tr('Te avisaremos cuando el stock llegue al mínimo.'),
                 style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
               ),
             ),
             const SizedBox(height: 28),
             FilledButton(
               onPressed: _saving ? null : _save,
-              child: Text(_isEditing ? 'Guardar cambios' : 'Crear producto'),
+              child: Text(_isEditing ? tr('Guardar cambios') : tr('Crear producto')),
             ),
           ],
         ),

@@ -1,3 +1,4 @@
+import '../l10n/i18n.dart';
 import '../utils/id_generator.dart';
 
 enum PaymentMethod {
@@ -6,8 +7,9 @@ enum PaymentMethod {
   credito('Crédito'),
   transferencia('Transferencia');
 
-  const PaymentMethod(this.label);
-  final String label;
+  const PaymentMethod(this.spanishLabel);
+  final String spanishLabel;
+  String get label => tr(spanishLabel);
 }
 
 class SaleItem {
