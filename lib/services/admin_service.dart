@@ -58,11 +58,13 @@ class AdminService {
 
   /// Activa Pro manualmente (por ejemplo, si te pagó en efectivo).
   /// Si ya tenía Pro manual vigente, suma los días al final.
-  static Future<void> grantPro(AdminUser user, int days) {
+  /// [tier] Básico (solo celular) o Negocio (celular + PC).
+  static Future<void> grantPro(AdminUser user, int days, PlanTier tier) {
     final now = DateTime.now();
     final from = user.manualProActive ? user.manualProUntil! : now;
     return _users.doc(user.uid).update({
       'manualProUntil': Timestamp.fromDate(from.add(Duration(days: days))),
+      'manualProTier': tier.id,
       'manualProBy': FirebaseAuth.instance.currentUser?.email ?? '',
       'manualProAt': FieldValue.serverTimestamp(),
     });

@@ -179,6 +179,27 @@ jobs:
           prerelease: true
           files: ${{ env.APK_NAME }}
 
+      # Link fijo que siempre baja el APK más nuevo (para la página web y el QR):
+      # https://github.com/<usuario>/<repo>/releases/download/descargas/StockPyme.apk
+      - name: Descarga directa (siempre la última versión)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        run: cp "${{ env.APK_NAME }}" StockPyme.apk
+
+      - name: Publicar descarga directa
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: descargas
+          name: "StockPyme — descargar"
+          body: |
+            Última versión de StockPyme.
+            - Android: StockPyme.apk
+            - Windows: StockPyme-Instalador.exe
+          prerelease: false
+          make_latest: true
+          overwrite_files: true
+          files: StockPyme.apk
+
       - name: Publicar versión oficial (solo con etiqueta vX.Y.Z)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

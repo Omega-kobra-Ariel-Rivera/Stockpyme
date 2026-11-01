@@ -10,6 +10,7 @@ import '../l10n/i18n.dart';
 import '../utils/constants.dart';
 import '../utils/formatters.dart';
 import '../utils/id_generator.dart';
+import '../utils/platform.dart';
 import 'storage_service.dart';
 
 /// Prueba gratis + suscripción mensual con Mercado Pago.
@@ -34,16 +35,42 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   String? _preapprovalId;
   DateTime? _lastCheck;
 
-  /// Plan elegido o contratado (mensual o anual).
+  /// Plan elegido en la pantalla de planes.
   PremiumPlan _plan = PremiumPlan.mensual;
+
+  /// Plan de la suscripción pagada y autorizada en Mercado Pago.
+  PremiumPlan? _paidPlan;
 
   /// Pro activado a mano por el administrador (pago en efectivo, regalo...).
   DateTime? _manualProUntil;
+  PlanTier _manualProTier = PlanTier.basico;
 
   bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-  /// Tiene Pro: por Mercado Pago o activado por el administrador.
-  bool get isSubscribed => _subscribed || manualProActive;
+  /// Este equipo es un PC: solo funciona con el Plan Negocio.
+  bool get onDesktop => AppPlatform.isDesktop;
+
+  /// Nivel del plan activo (el mayor entre Mercado Pago y el manual), o null.
+  PlanTier? get activeTier {
+    PlanTier? tier;
+    if (_subscribed) tier = (_paidPlan ?? _plan).tier;
+    if (manualProActive &&
+        (tier == null || _manualProTier == PlanTier.negocio)) {
+      tier = _manualProTier;
+    }
+    return tier;
+  }
+
+  bool get negocioActive => activeTier == PlanTier.negocio;
+
+  /// En el PC hace falta el Plan Negocio (aunque tenga el Básico).
+  bool get needsNegocio => onDesktop && !negocioActive;
+
+  /// Puede pasar del Básico al Negocio.
+  bool get canUpgrade => activeTier == PlanTier.basico;
+
+  /// Tiene algún plan pagado: por Mercado Pago o activado por el administrador.
+  bool get isSubscribed => activeTier != null;
 
   /// Suscripción pagada con Mercado Pago.
   bool get mercadoPagoActive => _subscribed;
@@ -60,6 +87,10 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   String? get info => _info;
   String get payerEmail => _payerEmail;
 
+  /// Id de la suscripción en Mercado Pago (se guarda en la cuenta para que
+  /// el Pro pagado en un equipo sirva también en los demás).
+  String? get preapprovalId => _preapprovalId;
+
   /// Hay un pago iniciado en Mercado Pago que aún no se confirma.
   bool get hasPendingPayment => _preapprovalId != null && !_subscribed;
 
@@ -70,8 +101,13 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     return (left.inHours / 24).ceil();
   }
 
-  bool get inTrial => !isSubscribed && trialDaysLeft > 0;
-  bool get hasAccess => isSubscribed || trialDaysLeft > 0;
+  /// La prueba gratis solo vale en el celular.
+  bool get inTrial => !isSubscribed && !onDesktop && trialDaysLeft > 0;
+
+  bool get hasAccess {
+    if (onDesktop) return negocioActive;
+    return isSubscribed || trialDaysLeft > 0;
+  }
 
   /// Estado para mostrar al administrador.
   String get planCode {
@@ -83,11 +119,17 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
 
   PremiumPlan get plan => _plan;
 
+  /// Plan contratado (o el elegido si aún no paga).
+  PremiumPlan get currentPlan => (_subscribed ? _paidPlan : null) ?? _plan;
+
   /// Precio del plan contratado, por ejemplo "$49.900 al año".
-  String get priceLabel => '${formatCLP(_plan.price)} ${tr(_plan.period)}';
+  String get priceLabel =>
+      '${formatCLP(currentPlan.price)} ${tr(currentPlan.period)}';
 
   void selectPlan(PremiumPlan plan) {
-    if (_subscribed || plan == _plan) return;
+    if (plan == _plan) return;
+    // Con un plan activo solo se puede elegir uno de Negocio (para subir).
+    if (_subscribed && !(plan.isNegocio && canUpgrade)) return;
     _plan = plan;
     notifyListeners();
   }
@@ -108,6 +150,12 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     _subscribed = _storage.getBool(StorageKeys.subscribed) ?? false;
     _payerEmail = _storage.getString(StorageKeys.payerEmail) ?? '';
     _plan = PremiumPlan.fromId(_storage.getString(StorageKeys.premiumPlan));
+    final paid = _storage.getString(StorageKeys.paidPlan);
+    _paidPlan = (paid == null || paid.isEmpty)
+        ? (_subscribed ? _plan : null)
+        : PremiumPlan.fromId(paid);
+    // En el PC se ofrece directamente el Plan Negocio.
+    if (onDesktop && !_plan.isNegocio) _plan = _plan.inTier(PlanTier.negocio);
     final savedId = _storage.getString(StorageKeys.preapprovalId);
     _preapprovalId = (savedId == null || savedId.isEmpty) ? null : savedId;
     final last = _storage.getString(StorageKeys.lastPaymentCheck);
@@ -154,7 +202,10 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> applyCloudPlan({
     DateTime? trialStart,
     DateTime? manualProUntil,
+    String? manualProTier,
+    String? preapprovalId,
   }) async {
+    _manualProTier = PlanTier.fromId(manualProTier);
     if (trialStart != null && trialStart.isBefore(_trialStart)) {
       _trialStart = trialStart;
       await _storage.setString(
@@ -162,6 +213,15 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
     }
     _manualProUntil = manualProUntil;
     notifyListeners();
+
+    // Suscripción pagada en otro equipo (por ejemplo, en el celular y ahora
+    // en el PC): se usa la misma y se revisa su estado en Mercado Pago.
+    final cloudId = preapprovalId?.trim() ?? '';
+    if (cloudId.isNotEmpty && cloudId != _preapprovalId) {
+      _preapprovalId = cloudId;
+      await _storage.setString(StorageKeys.preapprovalId, cloudId);
+      if (!_loading) unawaited(checkPayment(silent: true));
+    }
   }
 
   Future<void> setPayerEmail(String email) async {
@@ -172,6 +232,7 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   /// Crea la suscripción y abre Mercado Pago para pagar.
   Future<void> subscribe([String? email, PremiumPlan? plan]) async {
     if (plan != null) _plan = plan;
+    final upgrading = canUpgrade && _plan.isNegocio;
     _error = null;
     _info = null;
     if (email != null) await setPayerEmail(email);
@@ -220,6 +281,9 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
       } else {
         _info = tr(
           'Completa el pago en Mercado Pago y vuelve a StockPyme. Lo revisaremos al volver.');
+        if (upgrading) {
+          _info = '$_info\n${tr('Cuando se active el Plan Negocio, cancela tu plan Básico en Mercado Pago para no pagar los dos.')}';
+        }
       }
     } on TimeoutException {
       _error = tr(
@@ -268,16 +332,18 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
 
       final status = data['status'] as String? ?? '';
       final serverPlan = data['plan'] as String?;
-      if (serverPlan != null) {
-        _plan = PremiumPlan.fromId(serverPlan);
-        await _storage.setString(StorageKeys.premiumPlan, _plan.id);
-      }
+      final checkedPlan =
+          serverPlan == null ? _plan : PremiumPlan.fromId(serverPlan);
       _lastCheck = DateTime.now();
       await _storage.setString(
           StorageKeys.lastPaymentCheck, _lastCheck!.toIso8601String());
 
       switch (status) {
         case 'authorized':
+          _paidPlan = checkedPlan;
+          _plan = checkedPlan;
+          await _storage.setString(StorageKeys.paidPlan, checkedPlan.id);
+          await _storage.setString(StorageKeys.premiumPlan, checkedPlan.id);
           await _setSubscribed(true);
           _info = null;
         case 'pending':
@@ -288,6 +354,8 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
         case 'paused':
         case 'cancelled':
           await _setSubscribed(false);
+          _paidPlan = null;
+          await _storage.setString(StorageKeys.paidPlan, '');
           if (!silent) {
             _error = status == 'paused'
                 ? tr('Tu suscripción está pausada en Mercado Pago.')

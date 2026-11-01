@@ -100,6 +100,28 @@ jobs:
             StockPyme-Instalador-v*.exe
             StockPyme-Windows-v*.zip
 
+      # Link fijo que siempre baja el instalador más nuevo:
+      # https://github.com/<usuario>/<repo>/releases/download/descargas/StockPyme-Instalador.exe
+      - name: Descarga directa (siempre la última versión)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "StockPyme-Instalador-v*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($exe) { Copy-Item $exe.FullName "StockPyme-Instalador.exe" -Force }
+          $zip = Get-ChildItem "StockPyme-Windows-v*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($zip) { Copy-Item $zip.FullName "StockPyme-Windows.zip" -Force }
+
+      - name: Publicar descarga directa
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: descargas
+          name: "StockPyme — descargar"
+          prerelease: false
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: |
+            StockPyme-Instalador.exe
+            StockPyme-Windows.zip
+
       - name: Publicar versión oficial (solo con etiqueta vX.Y.Z)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

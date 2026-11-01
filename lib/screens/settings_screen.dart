@@ -188,11 +188,18 @@ class SettingsScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     final String subStatus;
-    if (sub.manualProActive && !sub.mercadoPagoActive) {
-      subStatus = tr('Activa hasta el {date}',
-          {'date': formatDate(sub.manualProUntil!)});
+    if (sub.needsNegocio) {
+      subStatus = tr('En el PC necesitas el Plan Negocio');
+    } else if (sub.manualProActive && !sub.mercadoPagoActive) {
+      subStatus = tr('Plan {tier} hasta el {date}', {
+        'tier': tr(sub.activeTier!.title),
+        'date': formatDate(sub.manualProUntil!),
+      });
     } else if (sub.isSubscribed) {
-      subStatus = tr('Activa · {price}', {'price': sub.priceLabel});
+      subStatus = tr('Plan {tier} · {price}', {
+        'tier': tr(sub.activeTier!.title),
+        'price': sub.priceLabel,
+      });
     } else if (sub.inTrial) {
       subStatus = tr('Prueba gratis: {n} días restantes',
           {'n': sub.trialDaysLeft});

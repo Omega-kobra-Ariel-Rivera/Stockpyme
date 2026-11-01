@@ -31,7 +31,7 @@ service cloud.firestore {
 
     // Campos que solo el administrador puede cambiar.
     function protectedFields() {
-      return ['manualProUntil', 'manualProBy', 'manualProAt', 'trialStart', 'createdAt'];
+      return ['manualProUntil', 'manualProTier', 'manualProBy', 'manualProAt', 'trialStart', 'createdAt'];
     }
 
     // Administradores: documento admins/{correo en minúsculas}.
@@ -45,7 +45,7 @@ service cloud.firestore {
 
       // Al crear la cuenta: sin Pro manual y sin prueba en el futuro.
       allow create: if isOwner(uid)
-        && !request.resource.data.keys().hasAny(['manualProUntil', 'manualProBy', 'manualProAt'])
+        && !request.resource.data.keys().hasAny(['manualProUntil', 'manualProTier', 'manualProBy', 'manualProAt'])
         && request.resource.data.trialStart <= request.time + duration.value(1, 'd');
 
       // El usuario actualiza su perfil y resumen, pero no los campos protegidos.
@@ -53,7 +53,7 @@ service cloud.firestore {
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedFields()))
         || (isAdmin()
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['manualProUntil', 'manualProBy', 'manualProAt']));
+               .hasOnly(['manualProUntil', 'manualProTier', 'manualProBy', 'manualProAt']));
 
       allow delete: if false;
 

@@ -5,6 +5,7 @@ import '../../models/admin_user.dart';
 import '../../models/product.dart';
 import '../../models/sale.dart';
 import '../../services/admin_service.dart';
+import '../../utils/constants.dart';
 import '../../utils/formatters.dart';
 import 'admin_widgets.dart';
 
@@ -27,15 +28,16 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
       AdminService.watchSales(widget.initial.uid);
   bool _busy = false;
 
-  Future<void> _changePlan(AdminUser user, {int? days}) async {
+  Future<void> _changePlan(AdminUser user,
+      {int? days, PlanTier tier = PlanTier.basico}) async {
     final grant = days != null;
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(grant ? tr('Activar Pro') : tr('Quitar Pro manual')),
         content: Text(grant
-            ? tr('¿Dar {days} días de Pro a {name}? Úsalo cuando te pague por fuera de la app (efectivo, transferencia) o para regalar días.',
-                {'days': days, 'name': user.displayName})
+            ? tr('¿Dar {days} días del Plan {tier} a {name}? Úsalo cuando te pague por fuera de la app (efectivo, transferencia) o para regalar días.',
+                {'days': days, 'tier': tr(tier.title), 'name': user.displayName})
             : tr('¿Quitar el Pro manual de {name}? Si paga con Mercado Pago, esa suscripción sigue activa.',
                 {'name': user.displayName})),
         actions: [
@@ -55,7 +57,7 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
     setState(() => _busy = true);
     try {
       if (days != null) {
-        await AdminService.grantPro(user, days);
+        await AdminService.grantPro(user, days, tier);
       } else {
         await AdminService.revokePro(user);
       }
@@ -99,7 +101,8 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
                 _SummaryTab(
                   user: user,
                   busy: _busy,
-                  onGrant: (days) => _changePlan(user, days: days),
+                  onGrant: (days, tier) =>
+                      _changePlan(user, days: days, tier: tier),
                   onRevoke: () => _changePlan(user),
                 ),
                 _InventoryTab(stream: _products, currency: user.currency),
@@ -127,7 +130,7 @@ class _SummaryTab extends StatelessWidget {
 
   final AdminUser user;
   final bool busy;
-  final ValueChanged<int> onGrant;
+  final void Function(int days, PlanTier tier) onGrant;
   final VoidCallback onRevoke;
 
   @override
@@ -138,8 +141,10 @@ class _SummaryTab extends StatelessWidget {
     final String planDetail = switch (user.plan) {
       AdminPlan.proMercadoPago => tr('Suscripción activa en Mercado Pago.'),
       AdminPlan.proManual =>
-        tr('Activado a mano hasta el {date}.',
-            {'date': formatDate(user.manualProUntil!)}),
+        tr('Plan {tier} activado a mano hasta el {date}.', {
+          'tier': tr(user.manualProTier.title),
+          'date': formatDate(user.manualProUntil!),
+        }),
       AdminPlan.trial =>
         tr('Le quedan {n} días de prueba gratis.', {'n': user.trialDaysLeft}),
       AdminPlan.expired => tr('La prueba terminó y no tiene suscripción.'),
@@ -160,7 +165,9 @@ class _SummaryTab extends StatelessWidget {
                       child: Text(user.displayName, style: text.titleLarge),
                     ),
                     PlanBadge(
-                        plan: user.plan, trialDaysLeft: user.trialDaysLeft),
+                        plan: user.plan,
+                        trialDaysLeft: user.trialDaysLeft,
+                        tier: user.displayTier),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -242,25 +249,40 @@ class _SummaryTab extends StatelessWidget {
                     style: text.bodyMedium
                         ?.copyWith(color: scheme.onSurfaceVariant)),
                 const SizedBox(height: 14),
+                if (user.tier != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                      tr('Nivel activo: {tier}', {'tier': tr(user.tier!.title)}),
+                      style: text.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                ],
+                for (final tier in PlanTier.values) ...[
+                  const SizedBox(height: 14),
+                  Text('${tr(tier.title)} · ${tr(tier.subtitle)}',
+                      style: text.labelLarge),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final (days, label) in [
+                        (30, tr('30 días')),
+                        (182, tr('6 meses')),
+                        (365, tr('1 año')),
+                      ])
+                        FilledButton.tonalIcon(
+                          onPressed: busy ? null : () => onGrant(days, tier),
+                          icon: const Icon(Icons.add),
+                          label: Text(label),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    FilledButton.tonalIcon(
-                      onPressed: busy ? null : () => onGrant(30),
-                      icon: const Icon(Icons.add),
-                      label: Text(tr('Pro 30 días')),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: busy ? null : () => onGrant(182),
-                      icon: const Icon(Icons.add),
-                      label: Text(tr('Pro 6 meses')),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: busy ? null : () => onGrant(365),
-                      icon: const Icon(Icons.add),
-                      label: Text(tr('Pro 1 año')),
-                    ),
                     if (user.manualProActive)
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(

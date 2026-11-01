@@ -51,6 +51,7 @@ class CloudSyncService extends ChangeNotifier {
   bool _profileReady = false;
   bool _restoreDone = false;
   String _lastPlan = '';
+  String? _lastPreapproval;
 
   DateTime? _lastSync;
   String? _error;
@@ -92,6 +93,7 @@ class CloudSyncService extends ChangeNotifier {
     inventory.addListener(_schedule);
     subscription.addListener(_onSubscriptionChanged);
     _lastPlan = subscription.planCode;
+    _lastPreapproval = subscription.preapprovalId;
     _schedule();
   }
 
@@ -150,6 +152,8 @@ class CloudSyncService extends ChangeNotifier {
     await subscription.applyCloudPlan(
       trialStart: (data['trialStart'] as Timestamp?)?.toDate(),
       manualProUntil: (data['manualProUntil'] as Timestamp?)?.toDate(),
+      manualProTier: data['manualProTier'] as String?,
+      preapprovalId: data['mpPreapprovalId'] as String?,
     );
   }
 
@@ -191,8 +195,10 @@ class CloudSyncService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   void _onSubscriptionChanged() {
-    if (subscription.planCode != _lastPlan) {
+    if (subscription.planCode != _lastPlan ||
+        subscription.preapprovalId != _lastPreapproval) {
       _lastPlan = subscription.planCode;
+      _lastPreapproval = subscription.preapprovalId;
       _schedule();
     }
   }
@@ -287,7 +293,10 @@ class CloudSyncService extends ChangeNotifier {
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'plan': subscription.planCode,
       'mercadoPago': subscription.mercadoPagoActive,
-      'premiumPlan': subscription.plan.id,
+      'premiumPlan': subscription.currentPlan.id,
+      'tier': subscription.activeTier?.id,
+      // Suscripción de Mercado Pago compartida entre celular y PC.
+      'mpPreapprovalId': subscription.preapprovalId ?? FieldValue.delete(),
       'stats': {
         'products': inventory.products.length,
         'lowStock': inventory.lowStockProducts.length,

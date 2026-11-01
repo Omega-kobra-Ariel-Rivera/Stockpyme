@@ -1,4 +1,4 @@
-STOCKPYME 1.5 — IDIOMAS, MONEDAS Y PLAN SEMESTRAL
+STOCKPYME 1.5 — IDIOMAS, MONEDAS, PLAN BÁSICO Y PLAN NEGOCIO
 =================================================
 
 1. Copia todo el contenido de esta carpeta StockPyme dentro de tu proyecto
@@ -16,6 +16,9 @@ STOCKPYME 1.5 — IDIOMAS, MONEDAS Y PLAN SEMESTRAL
 
 3. GitHub Actions genera el APK y el programa de Windows solos.
 
-4. Servidor de pagos: actualiza también el repositorio Stockpyme-pagos con
-   el zip Stockpyme-pagos_semestral.zip (plan semestral de $26.990).
+4. Servidor de pagos: actualiza el repositorio Stockpyme-pagos con el zip
+   Stockpyme-pagos_negocio.zip (Plan Básico y Plan Negocio).
    Hazlo ANTES de publicar esta versión de la app.
+
+5. Firebase: abre Firestore → Reglas, pega el contenido nuevo de
+   firestore.rules y toca Publicar (se agregó el campo manualProTier).

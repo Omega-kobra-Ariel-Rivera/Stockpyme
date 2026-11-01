@@ -12,7 +12,7 @@ class TrialBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sub = context.watch<SubscriptionService>();
-    if (sub.isSubscribed) return const SizedBox.shrink();
+    if (sub.hasAccess && sub.isSubscribed) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
     final expired = !sub.hasAccess;
@@ -41,7 +41,9 @@ class TrialBanner extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    expired
+                    sub.needsNegocio
+                        ? tr('Para usar StockPyme en el PC necesitas el Plan Negocio. Toca para ver los planes.')
+                        : expired
                         ? tr('Tu prueba gratis terminó. Suscríbete para seguir vendiendo.')
                         : days == 1
                             ? tr('Prueba gratis: te queda 1 día.')

@@ -40,9 +40,14 @@ Funciona **sin internet**: los datos quedan guardados en el teléfono.
 - **Monedas**: cada negocio elige su moneda en *Ajustes → Moneda* (CLP, ARS, COP, MXN, PEN, USD, EUR, BRL).
   Las monedas con centavos aceptan precios como `12,50`. Al cambiar de moneda los números se mantienen
   (no se convierten con el tipo de cambio).
-- **Plan semestral**: $26.990 cada 6 meses (ahorra 10%), además del mensual ($4.990) y el anual ($49.900).
-  Hay que actualizar también el servidor de pagos (`Stockpyme-pagos`).
-- El administrador ve cada negocio en su propia moneda y puede dar **Pro 6 meses**.
+- **Dos niveles de plan** (hay que actualizar también el servidor de pagos `Stockpyme-pagos`):
+  - **Básico** (solo celular): $4.990 mes · $26.990 semestre · $49.900 año.
+  - **Negocio** (celular + PC, equipos ilimitados): $7.990 mes · $43.990 semestre · $79.900 año.
+  - La prueba gratis de 14 días es solo en el celular; en el PC se necesita el Plan Negocio.
+  - Quien tiene Básico puede pasar a Negocio desde la app (después cancela el Básico en Mercado Pago).
+  - El Pro pagado en un equipo se reconoce en los demás con la misma cuenta.
+- **Reglas de Firestore actualizadas** (campo `manualProTier`): vuelve a publicar `firestore.rules`.
+- El administrador ve cada negocio en su propia moneda y puede dar Básico o Negocio por 30 días, 6 meses o 1 año.
 - Para agregar un texto nuevo: escríbelo con `tr('Texto en español')` y agrega su traducción en
   `lib/l10n/translations_en.dart` y `lib/l10n/translations_pt.dart`.
 

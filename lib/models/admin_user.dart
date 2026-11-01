@@ -35,6 +35,8 @@ class AdminUser {
     this.lastSeen,
     this.trialStart,
     this.manualProUntil,
+    this.manualProTier = PlanTier.basico,
+    this.tier,
     this.products = 0,
     this.lowStock = 0,
     this.inventoryValue = 0,
@@ -60,6 +62,10 @@ class AdminUser {
   final DateTime? lastSeen;
   final DateTime? trialStart;
   final DateTime? manualProUntil;
+  final PlanTier manualProTier;
+
+  /// Nivel del plan activo según la app del usuario (null si no tiene).
+  final PlanTier? tier;
   final int products;
   final int lowStock;
   final int inventoryValue;
@@ -67,6 +73,10 @@ class AdminUser {
   final int sales30d;
   final int salesCount30d;
   final DateTime? lastSaleAt;
+
+  /// Nivel para mostrar (las apps antiguas no informan el nivel: Básico).
+  PlanTier get displayTier =>
+      tier ?? (manualProActive ? manualProTier : PlanTier.basico);
 
   bool get manualProActive =>
       manualProUntil != null && manualProUntil!.isAfter(DateTime.now());
@@ -125,6 +135,8 @@ class AdminUser {
       lastSeen: _date(d['lastSeen']),
       trialStart: _date(d['trialStart']),
       manualProUntil: _date(d['manualProUntil']),
+      manualProTier: PlanTier.fromId(d['manualProTier'] as String?),
+      tier: d['tier'] == null ? null : PlanTier.fromId(d['tier'] as String?),
       products: _int(stats['products']),
       lowStock: _int(stats['lowStock']),
       inventoryValue: _int(stats['inventoryValue']),

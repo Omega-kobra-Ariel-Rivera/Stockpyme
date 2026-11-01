@@ -47,7 +47,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     final String status;
-    if (sub.isSubscribed) {
+    if (sub.needsNegocio && sub.isSubscribed) {
+      status = tr(
+          'Tu plan Básico es solo para el celular. Para usar StockPyme en el PC necesitas el Plan Negocio.');
+    } else if (sub.needsNegocio) {
+      status = tr(
+          'En el PC, StockPyme funciona con el Plan Negocio: úsala en tu celular y en todos tus computadores con la misma cuenta.');
+    } else if (sub.isSubscribed) {
       status = tr('Tu suscripción está activa. Gracias por confiar en {app}.',
           {'app': AppConstants.appName});
     } else if (sub.inTrial) {
@@ -59,14 +65,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
           tr('Tu prueba gratis terminó. Suscríbete para seguir vendiendo y controlando tu stock. Tus datos siguen guardados.');
     }
 
-    final String renewal = switch (sub.plan) {
-          PremiumPlan.anual => tr(
+    final String renewal = switch (sub.plan.months) {
+          12 => tr(
               'Pagas una vez al año y se renueva solo. Cancela cuando quieras desde tu cuenta de Mercado Pago.'),
-          PremiumPlan.semestral => tr(
+          6 => tr(
               'Pagas cada 6 meses y se renueva solo. Cancela cuando quieras desde tu cuenta de Mercado Pago.'),
-          PremiumPlan.mensual => tr(
+          _ => tr(
               'Cobro automático cada mes con Mercado Pago. Cancela cuando quieras desde tu cuenta de Mercado Pago.'),
         };
+
+    // En el PC solo se ofrece Negocio; en el celular se elige el nivel.
+    final tier = sub.onDesktop ? PlanTier.negocio : sub.plan.tier;
+    final upgrading = sub.canUpgrade && sub.plan.isNegocio;
+    final canPay = !sub.isSubscribed || upgrading;
+    final plansEnabled = !sub.loading && (!sub.isSubscribed || sub.canUpgrade);
     final planInfo = Money.currency == AppCurrency.clp
         ? renewal
         : '$renewal\n${tr('Los planes se cobran en pesos chilenos (CLP).')}';
@@ -108,11 +120,38 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
             const SizedBox(height: 24),
-            for (final plan in PremiumPlan.values) ...[
+            if (!sub.onDesktop) ...[
+              SegmentedButton<PlanTier>(
+                segments: [
+                  for (final t in PlanTier.values)
+                    ButtonSegment(
+                      value: t,
+                      label: Text(tr(t.title)),
+                      icon: Icon(t == PlanTier.negocio
+                          ? Icons.computer_outlined
+                          : Icons.phone_android),
+                    ),
+                ],
+                selected: {tier},
+                showSelectedIcon: false,
+                onSelectionChanged: plansEnabled
+                    ? (s) => sub.selectPlan(sub.plan.inTier(s.first))
+                    : null,
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              tr(tier.subtitle),
+              textAlign: TextAlign.center,
+              style: text.titleSmall?.copyWith(color: scheme.primary),
+            ),
+            const SizedBox(height: 16),
+            for (final plan in PremiumPlan.ofTier(tier)) ...[
               _PlanCard(
                 plan: plan,
                 selected: sub.plan == plan,
-                enabled: !sub.isSubscribed && !sub.loading,
+                enabled: plansEnabled &&
+                    (!sub.isSubscribed || plan.isNegocio),
                 onTap: () => sub.selectPlan(plan),
               ),
               const SizedBox(height: 12),
@@ -123,7 +162,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
-            if (sub.isSubscribed)
+            if (!canPay)
               FilledButton.icon(
                 onPressed: null,
                 icon: const Icon(Icons.check_circle),
@@ -160,8 +199,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                       )
                     : const Icon(Icons.lock_outline),
-                label: Text(tr('Pagar {price} con Mercado Pago',
-                    {'price': formatCLP(sub.plan.price)})),
+                label: Text(upgrading
+                    ? tr('Pasar a Negocio: {price} con Mercado Pago',
+                        {'price': formatCLP(sub.plan.price)})
+                    : tr('Pagar {price} con Mercado Pago',
+                        {'price': formatCLP(sub.plan.price)})),
               ),
               const SizedBox(height: 8),
               TextButton(
@@ -228,7 +270,7 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final best = plan == PremiumPlan.anual;
+    final best = plan.months == 12;
     final discounted = plan.months > 1;
 
     return Stack(

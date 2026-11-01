@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/i18n.dart';
 import '../../models/admin_user.dart';
+import '../../utils/constants.dart';
 
 /// Etiqueta de color con el plan de un usuario.
 class PlanBadge extends StatelessWidget {
-  const PlanBadge({super.key, required this.plan, this.trialDaysLeft = 0});
+  const PlanBadge({
+    super.key,
+    required this.plan,
+    this.trialDaysLeft = 0,
+    this.tier = PlanTier.basico,
+  });
 
   final AdminPlan plan;
   final int trialDaysLeft;
+  final PlanTier tier;
 
   @override
   Widget build(BuildContext context) {
@@ -17,12 +24,12 @@ class PlanBadge extends StatelessWidget {
       AdminPlan.proMercadoPago => (
           scheme.primaryContainer,
           scheme.onPrimaryContainer,
-          tr('Pro')
+          tr(tier.title)
         ),
       AdminPlan.proManual => (
           scheme.secondaryContainer,
           scheme.onSecondaryContainer,
-          tr('Pro manual')
+          tr('{tier} manual', {'tier': tr(tier.title)})
         ),
       AdminPlan.trial => (
           scheme.tertiaryContainer,

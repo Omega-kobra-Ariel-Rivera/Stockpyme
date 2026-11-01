@@ -199,7 +199,10 @@ class _UserTile extends StatelessWidget {
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           const SizedBox(width: 8),
-          PlanBadge(plan: user.plan, trialDaysLeft: user.trialDaysLeft),
+          PlanBadge(
+                        plan: user.plan,
+                        trialDaysLeft: user.trialDaysLeft,
+                        tier: user.displayTier),
         ],
       ),
       subtitle: Column(

@@ -37,11 +37,32 @@ class AppConstants {
   ];
 }
 
+/// Nivel del plan: Básico solo sirve en el celular; Negocio en todos los
+/// equipos (celular, PC y web) sin límite.
+enum PlanTier {
+  basico('basico', 'Básico', 'Solo celular'),
+  negocio('negocio', 'Negocio', 'Celular + PC · equipos ilimitados');
+
+  const PlanTier(this.id, this.title, this.subtitle);
+
+  final String id;
+
+  /// Textos en español (se traducen con tr al mostrarlos).
+  final String title;
+  final String subtitle;
+
+  static PlanTier fromId(String? id) => PlanTier.values.firstWhere(
+        (t) => t.id == id,
+        orElse: () => PlanTier.basico,
+      );
+}
+
 /// Planes Premium. Los montos deben ser iguales a los del servidor de pagos
 /// (funciones de Netlify): el cobro real lo define el servidor.
 enum PremiumPlan {
   mensual(
     id: 'mensual',
+    tier: PlanTier.basico,
     title: 'Mensual',
     price: 4990,
     months: 1,
@@ -50,6 +71,7 @@ enum PremiumPlan {
   ),
   semestral(
     id: 'semestral',
+    tier: PlanTier.basico,
     title: 'Semestral',
     price: 26990,
     months: 6,
@@ -58,8 +80,36 @@ enum PremiumPlan {
   ),
   anual(
     id: 'anual',
+    tier: PlanTier.basico,
     title: 'Anual',
     price: 49900,
+    months: 12,
+    period: 'al año',
+    note: '2 meses gratis',
+  ),
+  negocioMensual(
+    id: 'negocio_mensual',
+    tier: PlanTier.negocio,
+    title: 'Mensual',
+    price: 7990,
+    months: 1,
+    period: 'al mes',
+    note: 'Cancela cuando quieras',
+  ),
+  negocioSemestral(
+    id: 'negocio_semestral',
+    tier: PlanTier.negocio,
+    title: 'Semestral',
+    price: 43990,
+    months: 6,
+    period: 'cada 6 meses',
+    note: 'Ahorra 8%',
+  ),
+  negocioAnual(
+    id: 'negocio_anual',
+    tier: PlanTier.negocio,
+    title: 'Anual',
+    price: 79900,
     months: 12,
     period: 'al año',
     note: '2 meses gratis',
@@ -67,6 +117,7 @@ enum PremiumPlan {
 
   const PremiumPlan({
     required this.id,
+    required this.tier,
     required this.title,
     required this.price,
     required this.months,
@@ -75,6 +126,7 @@ enum PremiumPlan {
   });
 
   final String id;
+  final PlanTier tier;
   final String title;
 
   /// Pesos chilenos.
@@ -83,7 +135,20 @@ enum PremiumPlan {
   final String period;
   final String note;
 
+  bool get isNegocio => tier == PlanTier.negocio;
+
+  /// Nombre completo, por ejemplo "Negocio · Anual" (en español).
+  String get fullTitle => '${tier.title} · $title';
+
   int get monthlyEquivalent => (price / months).round();
+
+  /// Plan con la misma duración en el otro nivel.
+  PremiumPlan inTier(PlanTier target) => PremiumPlan.values.firstWhere(
+        (p) => p.tier == target && p.months == months,
+      );
+
+  static List<PremiumPlan> ofTier(PlanTier tier) =>
+      PremiumPlan.values.where((p) => p.tier == tier).toList();
 
   static PremiumPlan fromId(String? id) =>
       PremiumPlan.values.firstWhere((p) => p.id == id,
@@ -123,6 +188,10 @@ class StorageKeys {
   static const String lastPaymentCheck = 'sp_mp_last_check';
   static const String premiumPlan = 'sp_premium_plan';
 
+  /// Plan de la suscripción ya pagada (puede ser distinto al elegido en
+  /// pantalla, por ejemplo mientras se paga el cambio a Negocio).
+  static const String paidPlan = 'sp_paid_plan';
+
   /// Moneda del negocio (CLP, USD, EUR...).
   static const String currency = 'sp_currency';
 
@@ -146,6 +215,7 @@ class StorageKeys {
     preapprovalId,
     lastPaymentCheck,
     premiumPlan,
+    paidPlan,
     currency,
     cloudRestored,
   ];
