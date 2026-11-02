@@ -188,7 +188,9 @@ class SettingsScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     final String subStatus;
-    if (sub.needsNegocio) {
+    if (sub.adminAccess) {
+      subStatus = tr('Administrador: Plan Negocio incluido');
+    } else if (sub.needsNegocio) {
       subStatus = tr('En el PC necesitas el Plan Negocio');
     } else if (sub.manualProActive && !sub.mercadoPagoActive) {
       subStatus = tr('Plan {tier} hasta el {date}', {

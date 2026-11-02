@@ -136,6 +136,7 @@ class _BootstrapState extends State<_Bootstrap> {
           return _AccountScope(
             key: ValueKey(user.uid),
             user: user,
+            auth: session,
             storage: storage,
             pendingBusinessName: session.pendingBusinessName,
           );
@@ -150,11 +151,13 @@ class _AccountScope extends StatefulWidget {
   const _AccountScope({
     super.key,
     required this.user,
+    required this.auth,
     required this.storage,
     this.pendingBusinessName,
   });
 
   final User user;
+  final AuthService auth;
   final StorageService storage;
   final String? pendingBusinessName;
 
@@ -183,7 +186,8 @@ class _AccountScopeState extends State<_AccountScope> {
 
       final inventory = InventoryService(storage);
       await inventory.init();
-      final subscription = SubscriptionService(storage);
+      final subscription = SubscriptionService(storage)
+        ..setAdminAccess(widget.auth.isAdmin);
       await subscription
           .init(accountId: widget.user.uid)
           .timeout(const Duration(seconds: 10));
@@ -200,15 +204,20 @@ class _AccountScopeState extends State<_AccountScope> {
         _subscription = subscription;
         _sync = sync;
       });
+      // El administrador usa todo (Plan Negocio) sin pagar.
+      widget.auth.addListener(_syncAdmin);
       unawaited(sync.start());
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
   }
 
+  void _syncAdmin() => _subscription?.setAdminAccess(widget.auth.isAdmin);
+
   @override
   void dispose() {
     _sync?.dispose();
+    widget.auth.removeListener(_syncAdmin);
     _subscription?.dispose();
     _inventory?.dispose();
     _cart.dispose();

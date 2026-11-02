@@ -3,7 +3,7 @@
 **Inventario y punto de venta para almacenes, minimarkets y pymes.**
 App Flutter para Android y Windows, desarrollada por **Rivera Systems** (San Felipe, Chile).
 
-Precios Premium (StockPyme Pro), con **14 días de prueba gratis**:
+Precios Premium (StockPyme Pro), con **7 días de prueba gratis**:
 
 | Plan | Precio | Equivale a |
 |---|---|---|
@@ -23,7 +23,7 @@ Los montos están en `lib/utils/constants.dart` (`PremiumPlan`) y deben ser igua
 | Alertas | Productos bajo el mínimo destacados en Inicio |
 | Reportes | Ventas, ganancia, ticket promedio, gráfico diario y más vendidos (hoy, 7 y 30 días) |
 | Exportar | Inventario y ventas en CSV para Excel o Google Sheets |
-| Suscripción | Prueba de 14 días y planes mensual, semestral y anual con **Mercado Pago** |
+| Suscripción | Prueba de 7 días y planes mensual, semestral y anual con **Mercado Pago** |
 | Idiomas | Español, inglés y portugués (se elige en Ajustes o en la pantalla de inicio de sesión) |
 | Monedas | Peso chileno, argentino, colombiano y mexicano, sol peruano, dólar, euro y real (con centavos donde corresponde) |
 | Demo | Carga productos de ejemplo para mostrar la app |
@@ -43,7 +43,7 @@ Funciona **sin internet**: los datos quedan guardados en el teléfono.
 - **Dos niveles de plan** (hay que actualizar también el servidor de pagos `Stockpyme-pagos`):
   - **Básico** (solo celular): $4.990 mes · $26.990 semestre · $49.900 año.
   - **Negocio** (celular + PC, equipos ilimitados): $7.990 mes · $43.990 semestre · $79.900 año.
-  - La prueba gratis de 14 días es solo en el celular; en el PC se necesita el Plan Negocio.
+  - La prueba gratis de 7 días es solo en el celular; en el PC se necesita el Plan Negocio.
   - Quien tiene Básico puede pasar a Negocio desde la app (después cancela el Básico en Mercado Pago).
   - El Pro pagado en un equipo se reconoce en los demás con la misma cuenta.
 - **Reglas de Firestore actualizadas** (campo `manualProTier`): vuelve a publicar `firestore.rules`.
@@ -76,10 +76,12 @@ navegador, Google le devuelve un código y entra a la misma cuenta del celular.
 1. Entra a https://console.cloud.google.com y elige el proyecto **stockpyme**.
 2. **APIs y servicios → Credenciales → + Crear credenciales → ID de cliente de OAuth**.
 3. Tipo de aplicación: **App de escritorio**. Nombre: `StockPyme Windows` → **Crear**.
-4. Copia el **ID de cliente** y el **Secreto del cliente** en
-   `lib/utils/google_desktop_config.dart` (`clientId` y `clientSecret`).
-5. Sube los cambios. El botón "Continuar con Google" aparece solo en el PC cuando
-   esos dos datos están puestos.
+4. En GitHub → repositorio **stockpyme** → **Settings → Secrets and variables → Actions**
+   crea dos secretos: `GOOGLE_DESKTOP_CLIENT_ID` (el ID de cliente) y
+   `GOOGLE_DESKTOP_CLIENT_SECRET` (el secreto, `GOCSPX-...`). **No los escribas en el código:**
+   GitHub bloquea el `git push` si encuentra el secreto.
+5. Corre **Generar programa Windows**. El botón "Continuar con Google" aparece en el PC
+   cuando esos dos secretos existen.
 
 ## Programa para Windows (PC)
 

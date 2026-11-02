@@ -50,8 +50,19 @@ class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   /// Este equipo es un PC: solo funciona con el Plan Negocio.
   bool get onDesktop => AppPlatform.isDesktop;
 
+  /// Administrador de StockPyme: tiene el Plan Negocio sin pagar.
+  bool _adminAccess = false;
+  bool get adminAccess => _adminAccess;
+
+  void setAdminAccess(bool value) {
+    if (value == _adminAccess) return;
+    _adminAccess = value;
+    notifyListeners();
+  }
+
   /// Nivel del plan activo (el mayor entre Mercado Pago y el manual), o null.
   PlanTier? get activeTier {
+    if (_adminAccess) return PlanTier.negocio;
     PlanTier? tier;
     if (_subscribed) tier = (_paidPlan ?? _plan).tier;
     if (manualProActive &&

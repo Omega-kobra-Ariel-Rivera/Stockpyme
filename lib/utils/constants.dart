@@ -22,7 +22,7 @@ class AppConstants {
   static const int paymentCheckHours = 24;
 
   /// Días de prueba gratis antes de exigir la suscripción.
-  static const int trialDays = 14;
+  static const int trialDays = 7;
 
   /// Precio del plan mensual (compatibilidad con versiones anteriores).
   static const String fallbackPrice = r'$4.990';

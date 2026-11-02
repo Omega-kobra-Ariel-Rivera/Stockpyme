@@ -21,6 +21,7 @@ const Map<String, String> translationsPt = {
   'Activar Pro': 'Ativar Pro',
   'Activas 7 días': 'Ativas 7 dias',
   'Actual: {price}': 'Atual: {price}',
+  'Administrador: Plan Negocio incluido': 'Administrador: Plano Negócio incluído',
   'Agrega tu primer producto o carga productos de ejemplo para probar la app.': 'Adicione seu primeiro produto ou carregue produtos de exemplo para testar o app.',
   'Agregar uno': 'Adicionar um',
   'Agua mineral 1,6 L': 'Água mineral 1,6 L',

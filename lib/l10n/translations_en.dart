@@ -21,6 +21,7 @@ const Map<String, String> translationsEn = {
   'Activar Pro': 'Activate Pro',
   'Activas 7 días': 'Active 7 days',
   'Actual: {price}': 'Current: {price}',
+  'Administrador: Plan Negocio incluido': 'Administrator: Business plan included',
   'Agrega tu primer producto o carga productos de ejemplo para probar la app.': 'Add your first product or load sample products to try the app.',
   'Agregar uno': 'Add one',
   'Agua mineral 1,6 L': 'Mineral water 1.6 L',
