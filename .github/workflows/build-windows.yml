@@ -55,8 +55,18 @@ jobs:
       - name: Ícono del programa
         run: dart run flutter_launcher_icons -f flutter_launcher_icons_windows.yaml
 
+      # Google en el PC: los datos vienen de los secretos del repositorio
+      # (si no están, el programa funciona igual, sin el botón de Google).
       - name: Compilar para Windows
-        run: flutter build windows --release --obfuscate --split-debug-info=build/debug-info-windows
+        env:
+          GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}
+          GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+        shell: bash
+        run: >-
+          flutter build windows --release --obfuscate
+          --split-debug-info=build/debug-info-windows
+          --dart-define=GOOGLE_DESKTOP_CLIENT_ID="$GOOGLE_DESKTOP_CLIENT_ID"
+          --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET="$GOOGLE_DESKTOP_CLIENT_SECRET"
 
       - name: Incluir librerías de Visual C++
         shell: pwsh

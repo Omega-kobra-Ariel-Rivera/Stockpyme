@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart';
 
 import '../l10n/i18n.dart';
 import '../utils/constants.dart';
+import '../utils/google_desktop_config.dart';
 import '../utils/platform.dart';
+import 'google_desktop/google_desktop_sign_in.dart';
 
 /// Error de inicio de sesión con un mensaje listo para mostrar.
 class AuthFailure implements Exception {
@@ -132,7 +134,15 @@ class AuthService extends ChangeNotifier {
   // Google
   // ---------------------------------------------------------------------------
 
+  /// Se muestra el botón de Google (en el PC solo si está configurado).
+  static bool get googleAvailable =>
+      AppPlatform.hasGoogleSignIn ||
+      (AppPlatform.isDesktop && GoogleDesktopConfig.isConfigured);
+
   Future<void> signInWithGoogle() async {
+    if (!AppPlatform.hasGoogleSignIn && AppPlatform.isDesktop) {
+      return _signInWithGoogleDesktop();
+    }
     if (!AppPlatform.hasGoogleSignIn) {
       throw AuthFailure(tr('En el PC entra con tu correo y contraseña. Si creaste la cuenta con Google, usa "¿Olvidaste tu contraseña?" para crear una.'));
     }
@@ -146,6 +156,42 @@ class AuthService extends ChangeNotifier {
       } else {
         await _auth.signInWithProvider(provider);
       }
+    } on FirebaseAuthException catch (e) {
+      throw AuthFailure(_message(e));
+    } catch (_) {
+      throw AuthFailure(tr('No se pudo entrar con Google. Inténtalo otra vez.'));
+    }
+  }
+
+  /// Google en el PC: abre el navegador y entra con el token que devuelve.
+  Future<void> _signInWithGoogleDesktop() async {
+    if (!GoogleDesktopConfig.isConfigured) {
+      throw AuthFailure(tr(
+          'En el PC entra con tu correo y contraseña. Si creaste la cuenta con Google, usa "¿Olvidaste tu contraseña?" para crear una.'));
+    }
+    pendingBusinessName = null;
+    final GoogleDesktopTokens? tokens;
+    try {
+      tokens = await googleDesktopSignIn(
+        clientId: GoogleDesktopConfig.clientId,
+        clientSecret: GoogleDesktopConfig.clientSecret,
+        successHtml:
+            '<!doctype html><meta charset="utf-8"><title>StockPyme</title>'
+            '<body style="font-family:sans-serif;text-align:center;padding:60px">'
+            '<h2>${tr('Listo, ya puedes volver a StockPyme.')}</h2>'
+            '<p>${tr('Puedes cerrar esta pestaña.')}</p></body>',
+      );
+    } catch (_) {
+      throw AuthFailure(tr('No se pudo entrar con Google. Inténtalo otra vez.'));
+    }
+    if (tokens == null) {
+      throw AuthFailure(tr('Cancelaste el inicio de sesión con Google.'));
+    }
+    try {
+      await _auth.signInWithCredential(GoogleAuthProvider.credential(
+        idToken: tokens.idToken,
+        accessToken: tokens.accessToken,
+      ));
     } on FirebaseAuthException catch (e) {
       throw AuthFailure(_message(e));
     } catch (_) {

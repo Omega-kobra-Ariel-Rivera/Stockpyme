@@ -68,6 +68,19 @@ Funciona **sin internet**: los datos quedan guardados en el teléfono.
 - **Plan anual** de $49.900 (2 meses gratis) además del mensual de $4.990, elegible en la pantalla Premium.
 - **Firma fija del APK**: el inicio con Google funciona y las actualizaciones se instalan encima, sin desinstalar.
 
+## Google en el PC (una sola vez)
+
+Firebase no trae "Continuar con Google" para Windows, así que el programa abre el
+navegador, Google le devuelve un código y entra a la misma cuenta del celular.
+
+1. Entra a https://console.cloud.google.com y elige el proyecto **stockpyme**.
+2. **APIs y servicios → Credenciales → + Crear credenciales → ID de cliente de OAuth**.
+3. Tipo de aplicación: **App de escritorio**. Nombre: `StockPyme Windows` → **Crear**.
+4. Copia el **ID de cliente** y el **Secreto del cliente** en
+   `lib/utils/google_desktop_config.dart` (`clientId` y `clientSecret`).
+5. Sube los cambios. El botón "Continuar con Google" aparece solo en el PC cuando
+   esos dos datos están puestos.
+
 ## Programa para Windows (PC)
 
 StockPyme también funciona como **programa de escritorio para Windows 10 y 11**, con las mismas cuentas y datos que el teléfono.

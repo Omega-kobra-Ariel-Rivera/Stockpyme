@@ -5,7 +5,6 @@ import '../../l10n/i18n.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/language_button.dart';
 import '../../utils/constants.dart';
-import '../../utils/platform.dart';
 import '../../utils/theme.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/google_logo.dart';
@@ -337,7 +336,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ? tr('Crear cuenta')
                                           : tr('Ingresar')),
                                 ),
-                                if (AppPlatform.hasGoogleSignIn) ...[
+                                if (AuthService.googleAvailable) ...[
                                 const SizedBox(height: 20),
                                 Row(
                                   children: [
