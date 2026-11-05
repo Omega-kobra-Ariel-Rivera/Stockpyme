@@ -3,11 +3,19 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'StockPyme';
-  static const String appVersion = '1.5.0';
+  static const String appVersion = '1.6.0';
   static const String tagline = 'Inventario y ventas para tu negocio';
 
   static const String company = 'Rivera Systems';
   static const String companyLocation = 'San Felipe, Chile';
+
+  /// Correos del dueño de StockPyme: usan todo gratis en el celular y en el PC
+  /// aunque Firestore no responda (el panel de administración sigue
+  /// necesitando el documento admins/{correo}).
+  static const List<String> ownerEmails = [
+    'arielcoldrivera@gmail.com',
+    'arielriveracordova@gmail.com',
+  ];
 
   static const String logoPath = 'assets/branding/logo.png';
   static const String logoForegroundPath = 'assets/branding/splash_logo.png';

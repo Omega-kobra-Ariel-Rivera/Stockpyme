@@ -40,6 +40,13 @@ class AuthService extends ChangeNotifier {
   bool get isSignedIn => _user != null;
   bool get isAdmin => _isAdmin;
 
+  /// Dueño de la app (ver [AppConstants.ownerEmails]).
+  bool get isOwner =>
+      AppConstants.ownerEmails.contains(_user?.email?.toLowerCase().trim());
+
+  /// Usa todo sin pagar: dueño o administrador.
+  bool get hasFreeAccess => isOwner || _isAdmin;
+
   String get displayName {
     final name = _user?.displayName?.trim() ?? '';
     if (name.isNotEmpty) return name;
@@ -61,7 +68,7 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Un correo es administrador si existe el documento admins/{correo}.
-  Future<void> refreshAdmin() async {
+  Future<void> refreshAdmin({bool retried = false}) async {
     final email = _user?.email?.toLowerCase();
     if (email == null || email.isEmpty) return;
     try {
@@ -75,7 +82,11 @@ class AuthService extends ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {
-      // Sin conexión o sin permiso: no es administrador.
+      // Sin conexión o sin permiso: se reintenta una vez.
+      if (!retried) {
+        await Future<void>.delayed(const Duration(seconds: 5));
+        await refreshAdmin(retried: true);
+      }
     }
   }
 

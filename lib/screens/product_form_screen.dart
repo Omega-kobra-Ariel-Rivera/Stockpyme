@@ -8,6 +8,7 @@ import '../utils/access_guard.dart';
 import '../utils/constants.dart';
 import '../utils/formatters.dart';
 import '../utils/id_generator.dart';
+import '../widgets/price_calculator.dart';
 import 'scanner_screen.dart';
 
 /// Crear o editar un producto.
@@ -112,6 +113,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     return (q == null || q < 0) ? tr('Número no válido') : null;
   }
 
+  /// Calcula el precio de venta desde el costo y el % de ganancia.
+  Future<void> _openCalculator() async {
+    final cost = parseMoney(_cost.text);
+    final price = await showPriceCalculator(context, initialCost: cost);
+    if (price == null || !mounted) return;
+    setState(() => _price.text = moneyInput(price));
+  }
+
   @override
   Widget build(BuildContext context) {
     final inv = context.watch<InventoryService>();
@@ -204,8 +213,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     keyboardType: _moneyKeyboard,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                        labelText: tr('Precio venta *'),
-                        prefixText: _moneyPrefix),
+                      labelText: tr('Precio venta *'),
+                      prefixText: _moneyPrefix,
+                      suffixIcon: IconButton(
+                        tooltip: tr('Calculadora de precios'),
+                        icon: const Icon(Icons.calculate_outlined),
+                        onPressed: _openCalculator,
+                      ),
+                    ),
                     validator: (v) => (parseMoney(v ?? '') ?? 0) <= 0
                         ? tr('Ingresa un precio')
                         : null,

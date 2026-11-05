@@ -187,7 +187,7 @@ class _AccountScopeState extends State<_AccountScope> {
       final inventory = InventoryService(storage);
       await inventory.init();
       final subscription = SubscriptionService(storage)
-        ..setAdminAccess(widget.auth.isAdmin);
+        ..setAdminAccess(widget.auth.hasFreeAccess);
       await subscription
           .init(accountId: widget.user.uid)
           .timeout(const Duration(seconds: 10));
@@ -206,13 +206,17 @@ class _AccountScopeState extends State<_AccountScope> {
       });
       // El administrador usa todo (Plan Negocio) sin pagar.
       widget.auth.addListener(_syncAdmin);
+      // Si la respuesta de la nube llegó mientras cargaba, se aplica ahora.
+      _syncAdmin();
+      unawaited(widget.auth.refreshAdmin());
       unawaited(sync.start());
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
   }
 
-  void _syncAdmin() => _subscription?.setAdminAccess(widget.auth.isAdmin);
+  void _syncAdmin() =>
+      _subscription?.setAdminAccess(widget.auth.hasFreeAccess);
 
   @override
   void dispose() {
