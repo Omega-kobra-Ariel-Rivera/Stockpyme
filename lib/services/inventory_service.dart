@@ -210,7 +210,22 @@ class InventoryService extends ChangeNotifier {
     for (final p in _products) {
       if (p.barcode == code) return p;
     }
+    // El mismo código puede llegar con o sin ceros adelante: la cámara lee
+    // "745853001827" (UPC-A) y muchas pistolas "0745853001827" (EAN-13).
+    final key = _barcodeKey(code);
+    if (key == null) return null;
+    for (final p in _products) {
+      if (_barcodeKey(p.barcode) == key) return p;
+    }
     return null;
+  }
+
+  /// Código numérico sin ceros a la izquierda (null si no es numérico).
+  static String? _barcodeKey(String code) {
+    final c = code.trim();
+    if (c.isEmpty || !RegExp(r'^[0-9]+$').hasMatch(c)) return null;
+    final k = c.replaceFirst(RegExp(r'^0+'), '');
+    return k.isEmpty ? null : k;
   }
 
   bool isBarcodeTaken(String barcode, {String? exceptId}) {
