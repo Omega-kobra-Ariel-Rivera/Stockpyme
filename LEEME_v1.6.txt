@@ -1,0 +1,36 @@
+STOCKPYME 1.6 — REPORTES PROFESIONALES, NUEVO DISEÑO DE PC Y ACCESO DEL DUEÑO
+=============================================================================
+
+QUÉ TRAE
+- Reportes con 3 pestañas: Resumen, Productos y Reposición.
+  * Periodos: Hoy, 7 días, 30 días, Este mes o fechas a elección.
+  * Comparación con el periodo anterior (▲ / ▼ %).
+  * Gráficos: ventas por día, ganancia por día, ventas por hora,
+    por categoría y por medio de pago.
+  * Ranking de productos (más vendidos, más ganancia, más unidades, mejor margen)
+    y productos sin ventas (plata parada en bodega).
+  * Cuándo se acaba cada producto y cuánto comprar (7, 14 o 30 días),
+    con botón "Copiar pedido" para mandarlo por WhatsApp al proveedor.
+  * Exportar a Excel: resumen, detalle de ventas, reposición e inventario.
+- Calculadora de precios (costo + % de ganancia + IVA) en Reportes,
+  en el Inicio del PC y en el botón al lado de "Precio venta" del producto.
+- PC: menú lateral oscuro con el logo, "Hecho por Rivera Systems",
+  Inicio en dos columnas con tarjetas, gráfico de la semana y accesos rápidos.
+- Tus correos (arielcoldrivera@gmail.com y arielriveracordova@gmail.com)
+  usan todo gratis en el celular y en el PC, sin el aviso del Plan Negocio.
+
+CÓMO SUBIRLO
+1. Copia el contenido de esta carpeta StockPyme dentro de tu proyecto
+   (C:\dev\stock_pyme\stock_pyme) y acepta "Reemplazar los archivos".
+   Solo trae los archivos que cambiaron.
+
+2. En la terminal de VS Code, dentro del proyecto:
+
+     git pull
+     flutter pub get
+     git add .
+     git commit -m "v1.6: reportes profesionales y diseño de PC"
+     git push
+
+3. GitHub Actions genera el APK y el instalador de Windows solos.
+   No hace falta desinstalar: el instalador nuevo reemplaza al anterior.
