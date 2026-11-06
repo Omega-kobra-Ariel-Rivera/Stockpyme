@@ -1,0 +1,29 @@
+STOCKPYME 1.7 — RECIBIR MERCADERÍA Y MODO CAJA PARA PISTOLA LECTORA
+====================================================================
+
+QUÉ TRAE
+- Recibir mercadería (Productos → ícono de la bandeja, o en el Inicio):
+  escaneas cada producto que llegó con la pistola o la cámara.
+  * Si ya existe: cada lectura suma 1 (puedes escribir la cantidad).
+  * Si es nuevo: se crea una sola vez con nombre, costo y precio.
+  * Puedes actualizar el costo y el precio si el proveedor los cambió.
+  * "Guardar ingreso" suma todo al stock de una vez.
+- Modo caja en el PC: en Vender, el buscador queda siempre listo para la
+  pistola. Lees el código, suena y entra al carrito, sin hacer clic.
+- Importar productos desde Excel (Productos → ícono de subir archivo, o
+  Ajustes → Datos): copias tu lista en Excel (Nombre, Código, Categoría,
+  Unidad, Costo, Precio, Stock, Stock mínimo), tocas "Pegar desde Excel" y
+  quedan todos cargados. Si el producto ya existe, se actualiza.
+
+CÓMO SUBIRLO
+1. Copia el contenido de esta carpeta StockPyme dentro de tu proyecto
+   (C:\dev\stock_pyme\stock_pyme) y acepta "Reemplazar los archivos".
+
+2. En la terminal de VS Code, dentro del proyecto:
+
+     git pull
+     git add .
+     git commit -m "v1.7: recibir mercadería y modo caja"
+     git push
+
+3. GitHub Actions genera el APK y el instalador de Windows solos.

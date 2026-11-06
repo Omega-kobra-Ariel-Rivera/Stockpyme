@@ -11,6 +11,7 @@ import '../utils/constants.dart';
 import '../utils/formatters.dart';
 import '../utils/id_generator.dart';
 import 'cart_service.dart';
+import 'product_import.dart';
 import 'storage_service.dart';
 
 /// Error de negocio con mensaje listo para mostrar al usuario.
@@ -273,6 +274,80 @@ class InventoryService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Carga productos copiados desde Excel. Si el código de barras (o, sin
+  /// código, el nombre) ya existe, actualiza ese producto; si no, lo crea.
+  /// Con [addStock] el stock de la planilla se suma al actual; si no, lo
+  /// reemplaza. Devuelve cuántos se crearon y cuántos se actualizaron.
+  Future<({int added, int updated})> importProducts(
+    List<ImportRow> rows, {
+    bool addStock = false,
+  }) async {
+    var added = 0;
+    var updated = 0;
+    final note = tr('Importado desde Excel');
+    for (final r in rows.where((r) => r.isValid)) {
+      Product? existing =
+          r.barcode.isNotEmpty ? findByBarcode(r.barcode) : null;
+      if (existing == null) {
+        final n = r.name.toLowerCase().trim();
+        for (final p in _products) {
+          if (p.name.toLowerCase().trim() == n &&
+              (r.barcode.isEmpty || p.barcode.isEmpty)) {
+            existing = p;
+            break;
+          }
+        }
+      }
+      if (existing == null) {
+        final product = Product(
+          id: newId(),
+          name: r.name,
+          barcode: r.barcode,
+          category: r.category,
+          unit: r.unit,
+          costPrice: r.costPrice ?? 0,
+          salePrice: r.salePrice ?? 0,
+          stock: max(0.0, r.stock ?? 0.0),
+          minStock: max(0.0, r.minStock ?? 0.0),
+        );
+        _products.add(product);
+        _dirtyProducts.add(product.id);
+        if (product.stock > 0) {
+          _addMovement(product, MovementType.entrada, product.stock,
+              note: note);
+        }
+        added++;
+      } else {
+        final p = existing;
+        p.name = r.name;
+        if (r.barcode.isNotEmpty) p.barcode = r.barcode;
+        if (r.category.isNotEmpty) p.category = r.category;
+        p.unit = r.unit;
+        if (r.costPrice != null) p.costPrice = r.costPrice!;
+        if (r.salePrice != null) p.salePrice = r.salePrice!;
+        if (r.minStock != null) p.minStock = max(0.0, r.minStock!);
+        if (r.stock != null) {
+          final target = addStock ? p.stock + r.stock! : r.stock!;
+          final diff = max(0.0, target) - p.stock;
+          if (diff != 0) {
+            p.stock += diff;
+            _addMovement(
+                p, diff > 0 ? MovementType.entrada : MovementType.ajuste, diff,
+                note: note);
+          }
+        }
+        p.updatedAt = DateTime.now();
+        _dirtyProducts.add(p.id);
+        updated++;
+      }
+    }
+    _sortProducts();
+    await _saveProducts();
+    await _saveMovements();
+    notifyListeners();
+    return (added: added, updated: updated);
+  }
+
   // ---------------------------------------------------------------------------
   // Stock
   // ---------------------------------------------------------------------------
@@ -321,6 +396,30 @@ class InventoryService extends ChangeNotifier {
     await _saveProducts();
     await _saveMovements();
     notifyListeners();
+  }
+
+  /// Recepción de mercadería: suma el stock de varios productos de una vez
+  /// y, si cambió, actualiza el costo y el precio de venta.
+  Future<int> receiveGoods(List<ReceiveLine> lines) async {
+    var count = 0;
+    final note = tr('Recepción de mercadería');
+    for (final l in lines) {
+      final p = productById(l.productId);
+      if (p == null || l.quantity <= 0) continue;
+      p.stock += l.quantity;
+      if (l.costPrice != null && l.costPrice! >= 0) p.costPrice = l.costPrice!;
+      if (l.salePrice != null && l.salePrice! > 0) p.salePrice = l.salePrice!;
+      p.updatedAt = DateTime.now();
+      _dirtyProducts.add(p.id);
+      _addMovement(p, MovementType.entrada, l.quantity, note: note);
+      count++;
+    }
+    if (count > 0) {
+      await _saveProducts();
+      await _saveMovements();
+      notifyListeners();
+    }
+    return count;
   }
 
   List<StockMovement> movementsFor(String productId) =>
@@ -620,4 +719,23 @@ class InventoryService extends ChangeNotifier {
     await _storage.setString(StorageKeys.businessName, clean);
     notifyListeners();
   }
+}
+
+/// Una línea de la recepción de mercadería.
+class ReceiveLine {
+  ReceiveLine({
+    required this.productId,
+    this.quantity = 0,
+    this.costPrice,
+    this.salePrice,
+  });
+
+  final String productId;
+  double quantity;
+
+  /// Nuevo costo por unidad (null = no cambia).
+  int? costPrice;
+
+  /// Nuevo precio de venta (null = no cambia).
+  int? salePrice;
 }

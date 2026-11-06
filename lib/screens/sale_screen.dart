@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/i18n.dart';
@@ -7,6 +8,7 @@ import '../services/cart_service.dart';
 import '../services/inventory_service.dart';
 import '../utils/access_guard.dart';
 import '../utils/formatters.dart';
+import '../utils/platform.dart';
 import '../widgets/checkout_sheet.dart';
 import '../widgets/empty_state.dart';
 import 'scanner_screen.dart';
@@ -21,11 +23,13 @@ class SaleScreen extends StatefulWidget {
 
 class _SaleScreenState extends State<SaleScreen> {
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   bool _processing = false;
 
   @override
   void dispose() {
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -46,7 +50,15 @@ class _SaleScreenState extends State<SaleScreen> {
     // Productos a granel con menos de 1 kg disponible: agrega lo que queda.
     cart.add(product, available < 1 ? available : 1);
     _search.clear();
-    FocusScope.of(context).unfocus();
+    SystemSound.play(SystemSoundType.click);
+    HapticFeedback.lightImpact();
+    // Modo caja: en el PC el buscador queda listo para la próxima lectura de
+    // la pistola. En el celular se cierra el teclado.
+    if (AppPlatform.hasCameraScanner) {
+      FocusScope.of(context).unfocus();
+    } else {
+      _searchFocus.requestFocus();
+    }
     setState(() {});
   }
 
@@ -203,13 +215,37 @@ class _SaleScreenState extends State<SaleScreen> {
                 Expanded(
                   child: TextField(
                     controller: _search,
+                    focusNode: _searchFocus,
+                    autofocus: !AppPlatform.hasCameraScanner,
                     onChanged: (_) => setState(() {}),
-                    onSubmitted: (_) {
-                      if (suggestions.length == 1) _addToCart(suggestions.first);
+                    onSubmitted: (value) {
+                      // La pistola escribe el código y presiona Enter.
+                      final byCode = context
+                          .read<InventoryService>()
+                          .findByBarcode(value.trim());
+                      if (byCode != null) {
+                        _addToCart(byCode);
+                      } else if (suggestions.length == 1) {
+                        _addToCart(suggestions.first);
+                      } else if (value.trim().isNotEmpty &&
+                          suggestions.isEmpty) {
+                        showMessage(
+                            context,
+                            tr('No hay productos con el código {code}.',
+                                {'code': value.trim()}),
+                            error: true);
+                        _search.clear();
+                        _searchFocus.requestFocus();
+                        setState(() {});
+                      } else {
+                        _searchFocus.requestFocus();
+                      }
                     },
                     decoration: InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: tr('Buscar producto'),
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: AppPlatform.hasCameraScanner
+                          ? tr('Buscar producto')
+                          : tr('Buscar o pasar la pistola'),
                     ),
                   ),
                 ),

@@ -10,6 +10,8 @@ import '../utils/formatters.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/stock_adjust_dialog.dart';
+import 'import_screen.dart';
+import 'receive_screen.dart';
 import 'product_form_screen.dart';
 import 'scanner_screen.dart';
 
@@ -224,6 +226,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
         title: Text(tr('Productos ({n})', {'n': inv.products.length})),
         actions: [
           IconButton(
+            tooltip: tr('Recibir mercadería'),
+            icon: const Icon(Icons.move_to_inbox_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReceiveScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: tr('Importar productos desde Excel'),
+            icon: const Icon(Icons.upload_file_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ImportScreen()),
+            ),
+          ),
+          IconButton(
             tooltip: tr('Buscar con escáner'),
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: _scanSearch,
@@ -267,11 +283,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     title: tr('Sin productos'),
                     message:
                         tr('Agrega tu primer producto o carga productos de ejemplo para probar la app.'),
-                    action: OutlinedButton.icon(
-                      onPressed: () =>
-                          context.read<InventoryService>().loadDemoData(),
-                      icon: const Icon(Icons.auto_awesome_outlined),
-                      label: Text(tr('Cargar ejemplo')),
+                    action: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const ImportScreen()),
+                          ),
+                          icon: const Icon(Icons.upload_file_outlined),
+                          label: Text(tr('Importar desde Excel')),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              context.read<InventoryService>().loadDemoData(),
+                          icon: const Icon(Icons.auto_awesome_outlined),
+                          label: Text(tr('Cargar ejemplo')),
+                        ),
+                      ],
                     ),
                   )
                 : items.isEmpty

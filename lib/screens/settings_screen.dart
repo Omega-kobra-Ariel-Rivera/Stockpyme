@@ -14,6 +14,7 @@ import '../utils/constants.dart';
 import '../utils/formatters.dart';
 import '../widgets/app_logo.dart';
 import 'admin/admin_screen.dart';
+import 'import_screen.dart';
 import 'paywall_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -287,6 +288,15 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           _Header(tr('Datos')),
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: Text(tr('Importar productos desde Excel')),
+            subtitle: Text(tr('Carga toda tu lista de una vez')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ImportScreen()),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.table_view_outlined),
             title: Text(tr('Copiar inventario (CSV)')),

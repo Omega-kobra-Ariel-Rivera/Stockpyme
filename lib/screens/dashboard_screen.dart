@@ -14,6 +14,7 @@ import '../widgets/report_charts.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/trial_banner.dart';
 import 'admin/admin_screen.dart';
+import 'receive_screen.dart';
 import 'settings_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -95,6 +96,15 @@ class DashboardScreen extends StatelessWidget {
             onPressed: () => onNavigate(2),
             icon: const Icon(Icons.point_of_sale),
             label: Text(tr('Nueva venta')),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 52)),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReceiveScreen()),
+            ),
+            icon: const Icon(Icons.move_to_inbox_outlined),
+            label: Text(tr('Recibir mercadería')),
           ),
           const SizedBox(height: 24),
           _SectionHeader(
@@ -442,6 +452,13 @@ class _DesktopDashboard extends StatelessWidget {
                 hint: 'F2',
                 onTap: () => onNavigate(2),
                 primary: true,
+              ),
+              _QuickAction(
+                icon: Icons.move_to_inbox_outlined,
+                label: tr('Recibir mercadería'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ReceiveScreen()),
+                ),
               ),
               _QuickAction(
                 icon: Icons.inventory_2_outlined,

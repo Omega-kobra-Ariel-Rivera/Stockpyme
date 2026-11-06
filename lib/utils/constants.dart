@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'StockPyme';
-  static const String appVersion = '1.6.0';
+  static const String appVersion = '1.7.0';
   static const String tagline = 'Inventario y ventas para tu negocio';
 
   static const String company = 'Rivera Systems';
